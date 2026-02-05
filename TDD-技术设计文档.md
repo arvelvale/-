@@ -742,287 +742,141 @@ Agent D: 知识图谱构建器 (Graph Builder)
 
 ---
 
-## 4. API 设计
+## 4. API 架构设计
 
-### 4.1 RESTful API 规范
+### 4.1 API 设计原则
 
-#### 基础URL
 ```
-生产环境: https://api.yinji.app/v1
-开发环境: http://localhost:8000/v1
-```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+API 设计原则
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-#### 认证方式
-```
-Authorization: Bearer <JWT_TOKEN>
-```
+【命名规范】
+- RESTful风格
+- 小驼峰命名（camelCase）
+- 资源名词复数形式
 
-### 4.2 核心接口
+【认证机制】
+- JWT Token认证
+- Bearer Token方式
+- Token过期时间: 7天
 
-#### 4.2.1 用户相关
+【错误追踪】
+- 每个请求携带 traceId
+- 格式: UUID v4
+- 用于日志关联和错误排查
 
-```http
-# 用户注册
-POST /auth/register
-Content-Type: application/json
-
+【响应格式】
+统一响应结构:
 {
-    "username": "zhangsan",
-    "email": "zhangsan@example.com",
-    "password": "SecurePass123!"
+  "traceId": "uuid",
+  "success": boolean,
+  "data": object | array,
+  "error": {
+    "code": string,
+    "message": string
+  },
+  "timestamp": ISO8601
 }
 
-Response 201:
-{
-    "user_id": 123,
-    "username": "zhangsan",
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-}
+【版本控制】
+- URL路径版本: /v1/
+- 向后兼容原则
+- 废弃API提前通知（3个月）
 
-# 用户登录
-POST /auth/login
-Content-Type: application/json
-
-{
-    "email": "zhangsan@example.com",
-    "password": "SecurePass123!"
-}
-
-# 更新用户画像
-PUT /users/{user_id}/profile
-Content-Type: application/json
-
-{
-    "identity_tag": "职场精英",
-    "current_state": "压力大",
-    "personality_type": "INTJ",
-    "social_style": "职场干货风",
-    "catchphrases": ["复盘一下", "干就完了", "持续精进"]
-}
+【限流策略】
+- 免费用户: 100 req/min
+- 高级用户: 1000 req/min
+- 使用 X-RateLimit-* 响应头
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-#### 4.2.2 日记相关
+### 4.2 API 模块划分
 
-```http
-# 创建日记
-POST /diaries
-Content-Type: application/json
+```
+模块结构:
 
-{
-    "title": "今天的反思",
-    "content": "今天又被老板批评了，感觉很委屈...",
-    "diary_date": "2026-02-05",
-    "emotion_tags": ["委屈", "焦虑"],
-    "importance_score": 7,
-    "images": ["https://oss.yinji.app/images/123.jpg"]
-}
-
-Response 201:
-{
-    "diary_id": 456,
-    "created_at": "2026-02-05T15:30:00Z",
-    "message": "日记创建成功"
-}
-
-# 获取日记列表
-GET /diaries?page=1&page_size=20&start_date=2026-01-01&end_date=2026-02-05
-
-Response 200:
-{
-    "total": 45,
-    "page": 1,
-    "page_size": 20,
-    "diaries": [
-        {
-            "diary_id": 456,
-            "title": "今天的反思",
-            "content_preview": "今天又被老板批评了...",
-            "diary_date": "2026-02-05",
-            "emotion_tags": ["委屈", "焦虑"],
-            "is_analyzed": true
-        }
-    ]
-}
-
-# 获取单篇日记详情
-GET /diaries/{diary_id}
-
-# 更新日记
-PUT /diaries/{diary_id}
-
-# 删除日记
-DELETE /diaries/{diary_id}
+/v1
+├── /auth                    # 认证模块
+│   ├── POST /register       # 用户注册
+│   ├── POST /login          # 用户登录
+│   └── POST /refresh        # 刷新Token
+│
+├── /users                   # 用户模块
+│   ├── GET /{userId}/profile
+│   ├── PUT /{userId}/profile
+│   └── DELETE /{userId}
+│
+├── /diaries                 # 日记模块
+│   ├── POST /               # 创建日记
+│   ├── GET /                # 列表查询
+│   ├── GET /{diaryId}       # 详情查询
+│   ├── PUT /{diaryId}       # 更新日记
+│   └── DELETE /{diaryId}    # 删除日记
+│
+├── /ai                      # AI分析模块
+│   ├── POST /analyze        # 触发分析（异步）
+│   ├── GET /analyze/{taskId} # 查询结果
+│   └── GET /analyses        # 历史记录
+│
+├── /social                  # 社交文案模块
+│   ├── POST /generate       # 生成文案
+│   └── POST /{postId}/feedback # 反馈学习
+│
+├── /insights                # 数据洞察模块
+│   ├── GET /emotionTrend    # 情绪趋势
+│   ├── GET /timeline        # 时间轴
+│   ├── GET /stressSources   # 压力源分析
+│   ├── POST /weeklySummary  # 周总结
+│   └── POST /monthlyReport  # 月度报告
+│
+└── /ws                      # WebSocket
+    └── /analyze             # 实时流式分析
 ```
 
-#### 4.2.3 AI分析相关
+**详细接口定义请参考：`API接口文档.md`**
 
-```http
-# 触发AI分析（异步）
-POST /ai/analyze
-Content-Type: application/json
+### 4.3 traceId 追踪机制
 
-{
-    "diary_id": 456,
-    "analysis_type": "satir"  // satir/emotion/summary
-}
-
-Response 202:
-{
-    "task_id": "task_789",
-    "status": "processing",
-    "estimated_time": 3
-}
-
-# 查询分析结果
-GET /ai/analyze/{task_id}
-
-Response 200:
-{
-    "task_id": "task_789",
-    "status": "completed",
-    "result": {
-        "behavior_layer": {...},
-        "emotion_layer": {...},
-        "cognitive_layer": {...},
-        "belief_layer": {...},
-        "core_self_layer": {...},
-        "therapeutic_response": "我看到了你的委屈..."
-    }
-}
-
-# 获取历史分析记录
-GET /ai/analyses?diary_id=456
 ```
+请求流程:
+┌─────────────────────────────────────────────────────┐
+│ 1. 客户端生成 traceId (UUID v4)                     │
+│    或由网关自动生成                                  │
+└─────────────────────────────────────────────────────┘
+                    ↓
+┌─────────────────────────────────────────────────────┐
+│ 2. 请求头携带                                        │
+│    X-Trace-Id: 550e8400-e29b-41d4-a716-446655440000 │
+└─────────────────────────────────────────────────────┘
+                    ↓
+┌─────────────────────────────────────────────────────┐
+│ 3. 所有服务层传递 traceId                           │
+│    - FastAPI → LangGraph → LLM                      │
+│    - 数据库操作日志                                  │
+│    - 外部API调用                                     │
+└─────────────────────────────────────────────────────┘
+                    ↓
+┌─────────────────────────────────────────────────────┐
+│ 4. 响应返回 traceId                                  │
+│    {                                                 │
+│      "traceId": "550e8400...",                       │
+│      "data": {...}                                   │
+│    }                                                 │
+└─────────────────────────────────────────────────────┘
+                    ↓
+┌─────────────────────────────────────────────────────┐
+│ 5. 日志聚合（ELK/Loki）                             │
+│    - 按 traceId 关联所有日志                         │
+│    - 快速定位问题链路                                │
+└─────────────────────────────────────────────────────┘
 
-#### 4.2.4 朋友圈文案相关
-
-```http
-# 生成朋友圈文案
-POST /social/generate
-Content-Type: application/json
-
-{
-    "diary_id": 456,
-    "style": "职场干货风"  // 可选，默认使用用户画像
-}
-
-Response 200:
-{
-    "post_id": 789,
-    "versions": [
-        {
-            "version": "A",
-            "content": "今日复盘：被批评不可怕，可怕的是不成长。",
-            "style": "简洁版"
-        },
-        {
-            "version": "B",
-            "content": "有时候，委屈是成长的代价...",
-            "style": "情感版"
-        },
-        {
-            "version": "C",
-            "content": "老板又发威了，但我依然坚强💪",
-            "style": "幽默版"
-        }
-    ]
-}
-
-# 记录用户修改（用于风格学习）
-POST /social/{post_id}/feedback
-Content-Type: application/json
-
-{
-    "selected_version": "A",
-    "final_content": "今日复盘：被批评是成长的机会，持续精进！",
-    "modifications": [
-        {"from": "不可怕", "to": "是成长的机会"},
-        {"from": "不成长", "to": "持续精进"}
-    ]
-}
-```
-
-#### 4.2.5 数据洞察相关
-
-```http
-# 获取情绪趋势
-GET /insights/emotion-trend?days=30
-
-Response 200:
-{
-    "period": "2026-01-06 ~ 2026-02-05",
-    "data": [
-        {"date": "2026-01-06", "emotion": "开心", "score": 8},
-        {"date": "2026-01-07", "emotion": "焦虑", "score": 6},
-        ...
-    ],
-    "average_score": 6.5,
-    "dominant_emotion": "焦虑"
-}
-
-# 获取时间轴
-GET /insights/timeline?start_date=2026-01-01&end_date=2026-02-05
-
-# 获取知识图谱（压力源分析）
-GET /insights/stress-sources
-
-Response 200:
-{
-    "top_sources": [
-        {"entity": "老板", "type": "Person", "stress_count": 12},
-        {"entity": "项目延期", "type": "Event", "stress_count": 8}
-    ]
-}
-
-# 生成周总结
-POST /insights/weekly-summary
-Content-Type: application/json
-
-{
-    "week_start": "2026-01-27"
-}
-
-# 生成月度报告（PDF）
-POST /insights/monthly-report
-Content-Type: application/json
-
-{
-    "year": 2026,
-    "month": 1
-}
-
-Response 200:
-{
-    "report_url": "https://oss.yinji.app/reports/user_123_2026_01.pdf",
-    "expires_at": "2026-02-12T00:00:00Z"
-}
-```
-
-### 4.3 WebSocket API（实时流式输出）
-
-```javascript
-// 连接WebSocket
-const ws = new WebSocket('wss://api.yinji.app/v1/ws/analyze');
-
-// 发送分析请求
-ws.send(JSON.stringify({
-    action: 'analyze',
-    diary_id: 456
-}));
-
-// 接收流式输出
-ws.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    
-    if (data.type === 'progress') {
-        console.log(`进度: ${data.step}`);
-    } else if (data.type === 'chunk') {
-        // 流式输出文本
-        appendText(data.content);
-    } else if (data.type === 'complete') {
-        console.log('分析完成');
-    }
-};
+日志示例:
+[2026-02-05 15:30:00] INFO [traceId=550e8400...] API Gateway: POST /v1/ai/analyze
+[2026-02-05 15:30:01] INFO [traceId=550e8400...] AI Service: Start analysis
+[2026-02-05 15:30:02] INFO [traceId=550e8400...] LLM: GPT-4 invoked
+[2026-02-05 15:30:05] INFO [traceId=550e8400...] AI Service: Analysis completed
+[2026-02-05 15:30:05] INFO [traceId=550e8400...] API Gateway: Response 200
 ```
 
 ---
@@ -1080,472 +934,7 @@ src/
     └── constants.ts             # 常量定义
 ```
 
-### 5.3 关键组件示例
 
-#### 5.3.1 萨提亚冰山图组件
-
-```tsx
-import React from 'react';
-import { motion } from 'framer-motion';
-
-interface IcebergChartProps {
-    analysis: {
-        behavior_layer: any;
-        emotion_layer: any;
-        cognitive_layer: any;
-        belief_layer: any;
-        core_self_layer: any;
-    };
-}
-
-export const IcebergChart: React.FC<IcebergChartProps> = ({ analysis }) => {
-    const layers = [
-        { name: '行为', data: analysis.behavior_layer, color: '#E3F2FD' },
-        { name: '情绪', data: analysis.emotion_layer, color: '#BBDEFB' },
-        { name: '思维', data: analysis.cognitive_layer, color: '#90CAF9' },
-        { name: '信念', data: analysis.belief_layer, color: '#64B5F6' },
-        { name: '存在', data: analysis.core_self_layer, color: '#42A5F5' },
-    ];
-
-    return (
-        <div className="relative w-full h-[600px]">
-            {/* 水面线 */}
-            <div className="absolute w-full h-[2px] bg-blue-400 top-[100px] z-10">
-                <span className="absolute right-4 -top-6 text-sm text-blue-600">
-                    水面（意识层）
-                </span>
-            </div>
-
-            {/* 冰山层级 */}
-            {layers.map((layer, index) => (
-                <motion.div
-                    key={layer.name}
-                    className="relative mx-auto rounded-lg p-6 mb-4"
-                    style={{
-                        backgroundColor: layer.color,
-                        width: `${100 - index * 10}%`,
-                        marginTop: index === 0 ? '0' : '8px'
-                    }}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.2 }}
-                >
-                    <h3 className="font-bold text-lg mb-2">{layer.name}层</h3>
-                    <p className="text-sm">{JSON.stringify(layer.data)}</p>
-                </motion.div>
-            ))}
-        </div>
-    );
-};
-```
-
----
-
-## 6. 部署架构
-
-### 6.1 容器化部署
-
-```yaml
-# docker-compose.yml
-version: '3.8'
-
-services:
-  # Nginx网关
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
-      - ./ssl:/etc/nginx/ssl
-    depends_on:
-      - api-gateway
-
-  # FastAPI网关
-  api-gateway:
-    build: ./gateway
-    ports:
-      - "8000:8000"
-    environment:
-      - JWT_SECRET=${JWT_SECRET}
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - redis
-
-  # 日记服务
-  diary-service:
-    build: ./services/diary
-    environment:
-      - MYSQL_URL=mysql://user:pass@mysql:3306/yinji
-      - MILVUS_URL=http://milvus:19530
-    depends_on:
-      - mysql
-      - milvus
-
-  # AI服务
-  ai-service:
-    build: ./services/ai
-    environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - REDIS_URL=redis://redis:6379
-    deploy:
-      replicas: 3  # 多实例
-
-  # MySQL
-  mysql:
-    image: mysql:8.0
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: yinji
-    volumes:
-      - mysql-data:/var/lib/mysql
-
-  # Milvus
-  milvus:
-    image: milvusdb/milvus:latest
-    ports:
-      - "19530:19530"
-    volumes:
-      - milvus-data:/var/lib/milvus
-
-  # Neo4j
-  neo4j:
-    image: neo4j:5.15
-    ports:
-      - "7474:7474"
-      - "7687:7687"
-    environment:
-      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD}
-    volumes:
-      - neo4j-data:/data
-
-  # Redis
-  redis:
-    image: redis:alpine
-    ports:
-      - "6379:6379"
-
-  # RabbitMQ
-  rabbitmq:
-    image: rabbitmq:3-management
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-
-volumes:
-  mysql-data:
-  milvus-data:
-  neo4j-data:
-```
-
-### 6.2 Kubernetes部署（生产环境）
-
-```yaml
-# k8s/deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: ai-service
-spec:
-  replicas: 5
-  selector:
-    matchLabels:
-      app: ai-service
-  template:
-    metadata:
-      labels:
-        app: ai-service
-    spec:
-      containers:
-      - name: ai-service
-        image: yinji/ai-service:latest
-        resources:
-          requests:
-            memory: "2Gi"
-            cpu: "1000m"
-          limits:
-            memory: "4Gi"
-            cpu: "2000m"
-        env:
-        - name: OPENAI_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: ai-secrets
-              key: openai-api-key
----
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: ai-service-hpa
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: ai-service
-  minReplicas: 3
-  maxReplicas: 10
-  metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 70
-```
-
----
-
-## 7. 性能优化策略
-
-### 7.1 缓存策略
-
-```python
-# Redis缓存层级
-CACHE_STRATEGY = {
-    # L1: 用户画像（1小时）
-    "user_profile": {"ttl": 3600, "key": "profile:{user_id}"},
-    
-    # L2: 日记向量（永久，仅删除时清除）
-    "diary_embedding": {"ttl": -1, "key": "embed:{diary_id}"},
-    
-    # L3: AI分析结果（7天）
-    "ai_analysis": {"ttl": 604800, "key": "analysis:{diary_id}"},
-    
-    # L4: 朋友圈文案（24小时）
-    "social_post": {"ttl": 86400, "key": "post:{diary_id}"},
-    
-    # L5: 数据洞察（1小时）
-    "insights": {"ttl": 3600, "key": "insights:{user_id}:{type}"}
-}
-```
-
-### 7.2 数据库优化
-
-```sql
--- MySQL索引优化
-CREATE INDEX idx_user_date_emotion ON diaries(user_id, diary_date, emotion_tags(50));
-CREATE INDEX idx_timeline_user_date ON timeline_events(user_id, event_date DESC);
-
--- 分区表（按月分区）
-ALTER TABLE diaries PARTITION BY RANGE (YEAR(diary_date) * 100 + MONTH(diary_date)) (
-    PARTITION p202601 VALUES LESS THAN (202602),
-    PARTITION p202602 VALUES LESS THAN (202603),
-    ...
-);
-```
-
-### 7.3 LLM成本优化
-
-```python
-# 混合模型策略
-MODEL_ROUTING = {
-    "simple_tasks": {
-        "model": "gpt-3.5-turbo",  # 便宜
-        "tasks": ["事件提取", "情绪识别"]
-    },
-    "complex_tasks": {
-        "model": "gpt-4",  # 贵但准确
-        "tasks": ["萨提亚分析", "深度洞察"]
-    }
-}
-
-# Prompt缓存
-# 对于相同的System Prompt，使用缓存减少Token消耗
-```
-
----
-
-## 8. 安全设计
-
-### 8.1 数据加密
-
-```python
-# 传输层加密
-- HTTPS/TLS 1.3
-- WebSocket Secure (WSS)
-
-# 存储层加密
-from cryptography.fernet import Fernet
-
-class DiaryEncryption:
-    def __init__(self, user_key: str):
-        self.cipher = Fernet(user_key)
-    
-    def encrypt_content(self, content: str) -> bytes:
-        return self.cipher.encrypt(content.encode())
-    
-    def decrypt_content(self, encrypted: bytes) -> str:
-        return self.cipher.decrypt(encrypted).decode()
-```
-
-### 8.2 权限控制
-
-```python
-# RBAC权限模型
-ROLES = {
-    "free_user": {
-        "ai_analysis_daily_limit": 3,
-        "social_post_daily_limit": 1,
-        "data_retention_days": 365
-    },
-    "premium_user": {
-        "ai_analysis_daily_limit": -1,  # 无限
-        "social_post_daily_limit": -1,
-        "data_retention_days": -1,
-        "export_enabled": True
-    }
-}
-```
-
-### 8.3 隐私保护
-
-```python
-# 向量数据库多租户隔离
-milvus_collection.create_partition(partition_name=f"user_{user_id}")
-
-# 数据脱敏
-def anonymize_for_training(diary_content: str) -> str:
-    """
-    如果用户同意数据用于模型训练，需要脱敏
-    """
-    # 替换人名、地名、公司名等
-    return anonymized_content
-```
-
----
-
-## 9. 监控与运维
-
-### 9.1 监控指标
-
-```yaml
-# Prometheus监控
-metrics:
-  - name: api_request_duration_seconds
-    type: histogram
-    labels: [method, endpoint, status]
-  
-  - name: llm_token_usage_total
-    type: counter
-    labels: [model, user_id]
-  
-  - name: ai_analysis_queue_length
-    type: gauge
-  
-  - name: database_connection_pool_size
-    type: gauge
-    labels: [database_type]
-```
-
-### 9.2 日志系统
-
-```python
-# 结构化日志
-import structlog
-
-logger = structlog.get_logger()
-
-logger.info(
-    "ai_analysis_completed",
-    user_id=123,
-    diary_id=456,
-    processing_time=2.5,
-    model="gpt-4",
-    token_usage=1500
-)
-```
-
-### 9.3 告警规则
-
-```yaml
-# AlertManager规则
-groups:
-  - name: yinji_alerts
-    rules:
-      - alert: HighErrorRate
-        expr: rate(api_errors_total[5m]) > 0.05
-        for: 5m
-        annotations:
-          summary: "API错误率过高"
-      
-      - alert: LLMCostSpike
-        expr: increase(llm_cost_usd[1h]) > 100
-        annotations:
-          summary: "LLM成本异常增长"
-```
-
----
-
-## 10. 开发规范
-
-### 10.1 代码规范
-
-```python
-# Python代码规范（PEP 8 + Black）
-# pyproject.toml
-[tool.black]
-line-length = 100
-target-version = ['py311']
-
-[tool.isort]
-profile = "black"
-
-[tool.mypy]
-python_version = "3.11"
-strict = true
-```
-
-### 10.2 Git工作流
-
-```
-main (生产环境)
-  ↑
-develop (开发环境)
-  ↑
-feature/xxx (功能分支)
-```
-
-### 10.3 测试策略
-
-```python
-# 测试覆盖率要求
-- 单元测试覆盖率 > 80%
-- 集成测试覆盖核心流程
-- E2E测试覆盖关键用户路径
-
-# pytest示例
-def test_satir_analysis():
-    state = {
-        "diary_content": "今天被老板批评了...",
-        "user_profile": {...}
-    }
-    result = emotion_agent_node(state)
-    assert "emotion_layer" in result
-    assert result["emotion_layer"]["surface"] == "愤怒"
-```
-
----
-
-## 11. 技术债务与未来优化
-
-### 11.1 已知技术债务
-
-| 问题 | 影响 | 优先级 | 计划 |
-|------|------|--------|------|
-| LLM成本过高 | 运营成本 | P0 | 引入开源模型（Llama 3） |
-| 向量检索慢 | 用户体验 | P1 | 优化索引，增加缓存 |
-| 图数据库查询复杂 | 开发效率 | P2 | 封装常用查询模板 |
-
-### 11.2 未来技术演进
-
-```
-Phase 1 (当前): OpenAI API + Milvus + Neo4j
-    ↓
-Phase 2 (6个月): 混合模型（GPT-4 + 本地小模型）
-    ↓
-Phase 3 (12个月): 完全自主部署（Llama 3 + 自训练模型）
-```
 
 ---
 
