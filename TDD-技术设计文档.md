@@ -297,7 +297,79 @@ class AnalysisState(TypedDict):
     error: str
 ```
 
-### 3.2 Agent A: 时间线管家 (Timeline Manager)
+### 3.2 Agent 0: 上下文收集器 (Context Collector)
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Agent 0: 上下文收集器 (Context Collector)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+【职责】
+收集心理分析所需的所有上下文信息，为后续Agent提供完整的输入数据
+
+【输入契约】
+{
+  "userId": int,
+  "diaryId": int,
+  "diaryContent": str
+}
+
+【核心逻辑】
+1. 获取用户画像
+   - 数据源: MySQL - user_profiles 表
+   - 提取: identityTag, currentState, personalityType, socialStyle, catchphrases
+
+2. 获取时间轴上下文
+   - 数据源: MySQL - timeline_events 表
+   - 查询: 最近7天的事件记录
+   - 排序: 按日期倒序
+
+3. 检索相关历史记忆（可选）
+   - 数据源: Milvus 向量数据库
+   - 策略: 将当前日记向量化，检索Top 3相似历史日记
+   - 目的: 发现重复模式
+
+4. 获取知识图谱关系（可选）
+   - 数据源: Neo4j 图数据库
+   - 查询: 相关人物、压力源统计
+   - 示例: 查询"老板"触发压力的次数
+
+【输出契约】
+{
+  "userId": int,
+  "diaryId": int,
+  "diaryContent": str,
+  "diaryDate": date,
+  "userProfile": {
+    "identityTag": str,
+    "currentState": str,
+    "personalityType": str,
+    "socialStyle": str,
+    "catchphrases": List[str]
+  },
+  "timelineContext": List[Dict] (最近7天事件),
+  "relatedMemories": List[Dict] (可选),
+  "graphContext": Dict (可选)
+}
+
+【性能约束】
+- 处理时间: < 0.5秒
+- 数据库查询: 4次读取（MySQL x2, Milvus x1, Neo4j x1）
+
+【错误处理】
+- 用户画像缺失: 使用默认画像（INFP, 通用状态）
+- 时间轴为空: 返回空数组，不影响后续流程
+- 向量检索失败: 跳过相关记忆，继续流程
+- 图谱查询失败: 跳过图谱上下文，继续流程
+
+【依赖服务】
+- MySQL（用户画像、时间轴）
+- Milvus（向量检索）
+- Neo4j（知识图谱）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+### 3.3 Agent A: 时间线管家 (Timeline Manager)
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -697,33 +769,29 @@ Agent D: 知识图谱构建器 (Graph Builder)
 
   START
     ↓
-┌──────────────────┐
-│ Timeline Manager │ ← 提取事件，构建上下文
-└──────────────────┘
+┌──────────────────────┐
+│ Agent 0:             │ ← 收集上下文（用户画像、时间轴）
+│ Context Collector    │
+└──────────────────────┘
     ↓
-┌──────────────────┐
-│ Emotion Agent    │ ← 分析行为和情绪层
-└──────────────────┘
+┌──────────────────────┐
+│ Agent 1:             │ ← 提取事件，更新时间轴
+│ Timeline Manager     │
+└──────────────────────┘
     ↓
-┌──────────────────┐
-│ Cognitive Agent  │ ← 分析思维和信念层
-└──────────────────┘
+┌──────────────────────┐
+│ Agent 2:             │ ← 萨提亚五层分析
+│ Satir Therapist      │
+│  ├─ Node 2.1: 情绪侦探│
+│  ├─ Node 2.2: 信念挖掘│
+│  ├─ Node 2.3: 灵魂摆渡│
+│  └─ Node 2.4: 疗愈回信│
+└──────────────────────┘
     ↓
-┌──────────────────┐
-│ Existence Agent  │ ← 洞察存在层
-└──────────────────┘
-    ↓
-┌──────────────────┐
-│ Therapeutic Resp.│ ← 生成疗愈回复
-└──────────────────┘
-    ↓
-┌──────────────────┐
-│ Social Creator   │ ← 生成朋友圈文案
-└──────────────────┘
-    ↓
-┌──────────────────┐
-│ Graph Builder    │ ← 更新知识图谱
-└──────────────────┘
+┌──────────────────────┐
+│ Agent 3:             │ ← 更新知识图谱
+│ Graph Builder        │
+└──────────────────────┘
     ↓
    END
 
@@ -731,12 +799,21 @@ Agent D: 知识图谱构建器 (Graph Builder)
 每个节点接收 AnalysisState，处理后返回更新的 State
 
 并发优化:
-- Timeline Manager 和 Graph Builder 可并行执行
-- Social Creator 可独立于心理分析流程
+- Agent 0 和 Agent 1 可并行执行（如果时间轴已有数据）
+- Agent 3 可独立于用户响应（后台更新图谱）
 
 错误恢复:
-- 任一节点失败不中断整体流程
-- 关键节点失败时降级处理
+- Agent 0 失败: 使用默认画像 + 空时间轴
+- Agent 1 失败: 跳过时间轴更新
+- Agent 2 失败: 降级为简化版3层分析
+- Agent 3 失败: 记录日志，不影响用户体验
+
+性能指标:
+- 总耗时: ~5.6秒
+- LLM调用: 6次
+- 数据库操作: ~10次
+
+详细工作流请参考: 《多Agent心理分析工作流.md》
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
