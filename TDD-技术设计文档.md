@@ -2,61 +2,7 @@
 
 ## 1. 技术架构概览
 
-### 1.1 整体架构图
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        前端层 (Frontend)                      │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │   Web App    │  │   iOS App    │  │ Android App  │      │
-│  │   (React)    │  │  (React N.)  │  │  (React N.)  │      │
-│  └──────────────┘  └──────────────┘  └──────────────┘      │
-└─────────────────────────────────────────────────────────────┘
-                              ↓ HTTPS/WebSocket
-┌─────────────────────────────────────────────────────────────┐
-│                      API网关层 (Gateway)                      │
-│                    Nginx + FastAPI Gateway                   │
-│              (认证/限流/路由/负载均衡)                         │
-└─────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────┐
-│                      业务逻辑层 (Backend)                     │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │              FastAPI 微服务集群                        │  │
-│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐   │  │
-│  │  │ 日记服务 │ │ AI服务  │ │ 用户服务 │ │ 分析服务 │   │  │
-│  │  └─────────┘ └─────────┘ └─────────┘ └─────────┘   │  │
-│  └──────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────┐
-│                      AI编排层 (LangGraph)                     │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │  Agent A: 时间线管家 (Timeline Manager)              │  │
-│  │  Agent B: 萨提亚分析师 (Satir Therapist)             │  │
-│  │  Agent C: 社交主编 (Social Content Creator)          │  │
-│  │  Agent D: 知识图谱构建器 (Graph Builder)             │  │
-│  └──────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────┐
-│                      数据存储层 (Storage)                     │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐      │
-│  │  MySQL   │ │  Milvus  │ │  Neo4j   │ │  Redis   │      │
-│  │(结构化)  │ │(向量库)  │ │(图数据库)│ │(缓存)    │      │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘      │
-└─────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────┐
-│                      基础设施层 (Infrastructure)              │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐      │
-│  │  Docker  │ │    K8s   │ │   OSS    │ │  监控    │      │
-│  │(容器化)  │ │(编排)    │ │(对象存储)│ │(Prometheus)│    │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘      │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### 1.2 技术栈选型
+### 1.1 技术栈选型
 
 | 层级 | 技术选型 | 理由 |
 |------|---------|------|
@@ -353,326 +299,445 @@ class AnalysisState(TypedDict):
 
 ### 3.2 Agent A: 时间线管家 (Timeline Manager)
 
-#### 职责
-- 提取日记中的关键事件
-- 更新结构化时间轴
-- 检测连续事件模式
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Agent A: 时间线管家 (Timeline Manager)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-#### 实现
-```python
-def timeline_manager_node(state: AnalysisState) -> AnalysisState:
-    """
-    提取关键事件并更新时间轴
-    """
-    diary_content = state["diary_content"]
-    user_id = state["user_id"]
-    
-    # Prompt设计
-    prompt = f"""
-    你是一个专业的事件提取专家。请从以下日记中提取关键事件：
-    
-    日记内容：
-    {diary_content}
-    
-    请提取：
-    1. 事件摘要（一句话）
-    2. 情绪标签（如：焦虑、开心、愤怒）
-    3. 重要性评分（1-10）
-    4. 事件类型（work/relationship/health/achievement）
-    5. 相关实体（人物、地点）
-    
-    以JSON格式返回。
-    """
-    
-    # 调用LLM
-    response = llm.invoke(prompt)
-    event_data = json.loads(response.content)
-    
-    # 存入MySQL时间轴表
-    save_timeline_event(user_id, event_data)
-    
-    # 检测连续模式（如：连续3天失眠）
-    pattern = detect_continuous_pattern(user_id)
-    
-    # 更新状态
-    state["timeline_context"] = get_recent_timeline(user_id, days=7)
-    
-    return state
+【职责】
+从日记中提取关键事件，构建结构化时间轴，检测连续事件模式
+
+【输入契约】
+{
+  "user_id": int,
+  "diary_id": int,
+  "diary_content": str (min: 10字),
+  "diary_date": date
+}
+
+【核心逻辑】
+1. 事件提取
+   - 识别关键事件（Who/What/Where/When）
+   - 提取情绪标签（焦虑/开心/愤怒等）
+   - 评估重要性（1-10分）
+   - 分类事件类型（work/relationship/health/achievement）
+   - 提取相关实体（人物/地点）
+
+2. 时间轴更新
+   - 将事件存入MySQL时间轴表
+   - 关联到用户和日记ID
+
+3. 模式检测
+   - 检测连续事件（如：连续3天失眠）
+   - 识别周期性模式（如：每周一焦虑）
+   - 标记异常事件（重要性 > 8）
+
+4. 上下文构建
+   - 获取最近7天的事件摘要
+   - 为后续分析提供历史背景
+
+【输出契约】
+{
+  "timeline_context": List[Dict] (最近7天事件),
+  "current_event": {
+    "summary": str (一句话摘要),
+    "emotion_tag": str,
+    "importance_score": int (1-10),
+    "event_type": str (enum: work/relationship/health/achievement),
+    "entities": {
+      "persons": List[str],
+      "locations": List[str]
+    }
+  },
+  "detected_patterns": List[Dict] (可选)
+}
+
+【性能约束】
+- 处理时间: < 2秒
+- LLM Token消耗: < 500
+
+【数据持久化】
+- 目标表: timeline_events (MySQL)
+- 字段映射:
+  - event_summary ← current_event.summary
+  - emotion_tag ← current_event.emotion_tag
+  - importance_score ← current_event.importance_score
+
+【错误处理】
+- 日记过短: 返回空事件，不阻断流程
+- 实体提取失败: 使用空列表
+- 数据库写入失败: 记录日志，不影响后续节点
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
 ### 3.3 Agent B: 萨提亚分析师 (Satir Therapist)
 
-#### 职责
-- 基于萨提亚冰山模型进行五层分析
-- 生成温暖的疗愈回复
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Agent B: 萨提亚分析师 (Satir Therapist)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-#### 实现（分5个子节点）
+【职责】
+基于萨提亚冰山模型，对用户日记进行五层深度分析，生成温暖的疗愈回复
 
-##### Node B1: 情绪侦探 (Emotion Agent)
-```python
-def emotion_agent_node(state: AnalysisState) -> AnalysisState:
-    """
-    分析行为层和情绪层
-    """
-    prompt = f"""
-    你是一位专业的情绪分析师。
-    
-    日记内容：{state["diary_content"]}
-    
-    请分析：
-    1. 显性事件（Who/What/Where/When）
-    2. 用户的应对姿态（指责/讨好/超理智/打岔）
-    3. 表层情绪（如：愤怒）
-    4. 潜在情绪（如：恐惧、委屈）
-    
-    以JSON格式返回：
-    {{
-        "behavior": {{"event": "...", "coping_style": "..."}},
-        "emotion": {{"surface": "...", "underlying": "..."}}
-    }}
-    """
-    
-    response = llm.invoke(prompt)
-    result = json.loads(response.content)
-    
-    state["behavior_layer"] = result["behavior"]
-    state["emotion_layer"] = result["emotion"]
-    
-    return state
+【输入契约】
+{
+  "user_id": int,
+  "diary_content": str (min: 10字, max: 10000字),
+  "user_profile": {
+    "personality_type": str (MBTI类型, 可选),
+    "current_state": str
+  },
+  "timeline_context": List[Dict] (最近7天事件)
+}
+
+【核心逻辑】
+采用五个子节点顺序处理，逐层深入：
+
+┌─────────────────────────────────────────┐
+│ Node B1: 情绪侦探 (Emotion Agent)       │
+├─────────────────────────────────────────┤
+│ 输入: diary_content                     │
+│ 任务:                                   │
+│   1. 提取显性事件 (Who/What/Where/When) │
+│   2. 识别应对姿态 (指责/讨好/超理智/打岔)│
+│   3. 分析表层情绪 (愤怒/焦虑/开心)      │
+│   4. 挖掘潜在情绪 (恐惧/委屈/渴望)      │
+│ 输出:                                   │
+│   - behavior_layer: {                   │
+│       event: str,                       │
+│       coping_style: str (enum)          │
+│     }                                   │
+│   - emotion_layer: {                    │
+│       surface: str,                     │
+│       underlying: str                   │
+│     }                                   │
+└─────────────────────────────────────────┘
+        ↓
+┌─────────────────────────────────────────┐
+│ Node B2: 信念挖掘机 (Cognitive Agent)   │
+├─────────────────────────────────────────┤
+│ 输入: diary_content + emotion_layer     │
+│ 任务:                                   │
+│   1. 识别非理性信念 ("我必须完美")     │
+│   2. 发现未满足期待 ("希望被认可")     │
+│   3. 提取核心价值观 ("成就感很重要")   │
+│ 输出:                                   │
+│   - cognitive_layer: {                  │
+│       thinking: str (非理性信念)        │
+│     }                                   │
+│   - belief_layer: {                     │
+│       belief: str (核心价值观)          │
+│     }                                   │
+└─────────────────────────────────────────┘
+        ↓
+┌─────────────────────────────────────────┐
+│ Node B3: 灵魂摆渡人 (Existence Agent)   │
+├─────────────────────────────────────────┤
+│ 输入: 前面所有层 + timeline_context     │
+│ 任务:                                   │
+│   洞察深层渴望:                         │
+│   - 被爱 (Love)                         │
+│   - 被接纳 (Acceptance)                 │
+│   - 自由 (Freedom)                      │
+│   - 意义 (Meaning)                      │
+│ 输出:                                   │
+│   - core_self_layer: {                  │
+│       desire: str (100-200字),          │
+│       life_energy: str                  │
+│     }                                   │
+└─────────────────────────────────────────┘
+        ↓
+┌─────────────────────────────────────────┐
+│ Node B4: 疗愈回信生成器 (Responder)     │
+├─────────────────────────────────────────┤
+│ 输入: core_self_layer + user_profile    │
+│ 任务:                                   │
+│   根据用户性格类型调整语气:             │
+│   - INFP: 温柔共情，诗意表达            │
+│   - INTJ: 理性分析，提供框架            │
+│   - ESFP: 积极鼓励，活泼轻松            │
+│   生成内容包含:                         │
+│   1. 看见感受                           │
+│   2. 连接渴望                           │
+│   3. 成长建议                           │
+│ 输出:                                   │
+│   - therapeutic_response: str (200-300字)│
+└─────────────────────────────────────────┘
 ```
 
-##### Node B2: 信念挖掘机 (Cognitive Agent)
-```python
-def cognitive_agent_node(state: AnalysisState) -> AnalysisState:
-    """
-    分析思维层和信念层
-    """
-    prompt = f"""
-    你是一位认知心理学专家。
-    
-    日记内容：{state["diary_content"]}
-    情绪分析：{state["emotion_layer"]}
-    
-    请分析：
-    1. 非理性信念（如："我必须完美"）
-    2. 未被满足的期待（如："希望被认可"）
-    3. 核心价值观（如："成就感很重要"）
-    
-    以JSON格式返回。
-    """
-    
-    response = llm.invoke(prompt)
-    result = json.loads(response.content)
-    
-    state["cognitive_layer"] = result["thinking"]
-    state["belief_layer"] = result["belief"]
-    
-    return state
-```
+【输出契约】
+{
+  "behavior_layer": {
+    "event": str,
+    "coping_style": str (enum: 指责/讨好/超理智/打岔)
+  },
+  "emotion_layer": {
+    "surface": str,
+    "underlying": str
+  },
+  "cognitive_layer": {
+    "thinking": str
+  },
+  "belief_layer": {
+    "belief": str
+  },
+  "core_self_layer": {
+    "desire": str,
+    "life_energy": str
+  },
+  "therapeutic_response": str (200-300字)
+}
 
-##### Node B3: 灵魂摆渡人 (Existence Agent)
-```python
-def existence_agent_node(state: AnalysisState) -> AnalysisState:
-    """
-    分析存在层（冰山最底层）
-    """
-    prompt = f"""
-    你是一位资深的萨提亚流派咨询师。
-    
-    用户行为：{state["behavior_layer"]}
-    情绪：{state["emotion_layer"]}
-    思维：{state["cognitive_layer"]}
-    信念：{state["belief_layer"]}
-    历史背景：{state["timeline_context"]}
-    
-    请洞察他内心深层的**渴望**：
-    - 被爱（Love）
-    - 被接纳（Acceptance）
-    - 自由（Freedom）
-    - 意义（Meaning）
-    
-    不要评判，要看见他的生命力。
-    请生成一段直击灵魂的分析（100-200字）。
-    """
-    
-    response = llm.invoke(prompt)
-    
-    state["core_self_layer"] = {
-        "desire": response.content,
-        "life_energy": "..."
-    }
-    
-    return state
-```
+【性能约束】
+- 总处理时间: < 5秒
+- LLM调用次数: ≤ 4次 (每个子节点1次)
+- Token消耗: < 3000
 
-##### Node B4: 疗愈回信生成器 (Therapeutic Responder)
-```python
-def therapeutic_responder_node(state: AnalysisState) -> AnalysisState:
-    """
-    生成温暖的疗愈回复
-    """
-    user_profile = state["user_profile"]
-    personality = user_profile.get("personality_type", "INFP")
-    
-    # 根据人格类型调整语气
-    tone_map = {
-        "INFP": "温柔共情，诗意表达",
-        "INTJ": "理性分析，提供框架",
-        "ESFP": "积极鼓励，活泼轻松"
-    }
-    tone = tone_map.get(personality[:4], "温和倾听")
-    
-    prompt = f"""
-    你是一位温暖的心理陪伴者。
-    
-    用户的深层分析：{state["core_self_layer"]}
-    用户性格：{personality}
-    回复语气：{tone}
-    
-    请生成一段温暖、像人一样的回复（200-300字），包含：
-    1. 看见他的感受
-    2. 连接到他的渴望
-    3. 给予具体的成长建议
-    
-    不要说教，要陪伴。
-    """
-    
-    response = llm.invoke(prompt)
-    state["therapeutic_response"] = response.content
-    
-    return state
+【错误处理】
+- 日记过短 (<10字): 返回引导式提问
+- LLM超时: 降级为简化版3层分析
+- 用户画像缺失: 使用默认通用人设 (INFP)
+
+【依赖服务】
+- LLM服务 (OpenAI GPT-4)
+- 向量数据库 (Milvus，检索历史记忆)
+- 时间轴服务 (获取上下文)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
 ### 3.4 Agent C: 社交主编 (Social Content Creator)
 
-#### 职责
-- 生成个性化朋友圈文案
-- 学习用户修改记录
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Agent C: 社交主编 (Social Content Creator)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-#### 实现
-```python
-def social_content_creator_node(state: AnalysisState) -> AnalysisState:
-    """
-    生成朋友圈文案
-    """
-    user_profile = state["user_profile"]
-    social_style = user_profile.get("social_style", "文艺极简风")
-    catchphrases = user_profile.get("catchphrases", [])
-    
-    # 获取历史修改记录（用于风格学习）
-    past_modifications = get_user_style_modifications(state["user_id"])
-    
-    prompt = f"""
-    你是一位社交媒体文案专家。
-    
-    日记内容：{state["diary_content"]}
-    用户风格：{social_style}
-    口头禅：{catchphrases}
-    历史修改偏好：{past_modifications}
-    
-    请生成3个版本的朋友圈文案（每个50-100字）：
-    1. 版本A：简洁版
-    2. 版本B：情感版
-    3. 版本C：幽默版
-    
-    要求：
-    - 自然融入用户的口头禅
-    - 符合用户的社交人设
-    - 不要过度煽情
-    
-    以JSON数组返回。
-    """
-    
-    response = llm.invoke(prompt)
-    posts = json.loads(response.content)
-    
-    state["social_post"] = posts
-    
-    return state
+【职责】
+生成个性化朋友圈文案，学习用户修改记录，持续优化风格匹配度
+
+【输入契约】
+{
+  "user_id": int,
+  "diary_content": str,
+  "user_profile": {
+    "social_style": str (文艺极简风/职场干货风/幽默自嘲风等),
+    "catchphrases": List[str] (用户口头禅)
+  }
+}
+
+【核心逻辑】
+1. 风格匹配
+   - 读取用户的社交风格偏好
+   - 提取用户的口头禅列表
+   - 获取历史修改记录（用于风格学习）
+
+2. 文案生成
+   - 生成3个不同版本的文案
+   - 版本A: 简洁版 (50-80字)
+   - 版本B: 情感版 (80-100字)
+   - 版本C: 幽默版 (60-90字)
+
+3. 风格融合
+   - 自然融入用户口头禅
+   - 符合用户社交人设
+   - 避免过度煽情或刻意
+
+4. 学习机制
+   - 记录用户选择的版本
+   - 分析用户的修改内容
+   - 更新Style Profile
+
+【输出契约】
+{
+  "social_posts": [
+    {
+      "version": "A",
+      "content": str (50-80字),
+      "style": "简洁版"
+    },
+    {
+      "version": "B",
+      "content": str (80-100字),
+      "style": "情感版"
+    },
+    {
+      "version": "C",
+      "content": str (60-90字),
+      "style": "幽默版"
+    }
+  ]
+}
+
+【性能约束】
+- 处理时间: < 2秒
+- LLM Token消耗: < 800
+
+【风格学习流程】
+用户修改文案 → 记录修改差异 → 提取风格特征 → 更新用户画像
+
+示例:
+原文: "今天很开心"
+修改: "今日份的小确幸"
+学习: 用户偏好文艺表达，喜欢"今日份"句式
+
+【数据持久化】
+- 目标表: social_posts (MySQL)
+- 学习数据: user_profiles.catchphrases (JSON字段)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
 ### 3.5 Agent D: 知识图谱构建器 (Graph Builder)
 
-#### 职责
-- 提取实体和关系
-- 更新Neo4j知识图谱
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Agent D: 知识图谱构建器 (Graph Builder)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-#### 实现
-```python
-def graph_builder_node(state: AnalysisState) -> AnalysisState:
-    """
-    构建知识图谱
-    """
-    diary_content = state["diary_content"]
-    
-    prompt = f"""
-    你是一个知识图谱构建专家。
-    
-    日记内容：{diary_content}
-    
-    请提取：
-    1. 实体（Entity）：
-       - 人物（Person）：姓名、关系
-       - 地点（Location）：名称、类型
-       - 事件（Event）：摘要、日期
-       - 情绪（Emotion）：类型、强度
-    
-    2. 关系（Relation）：
-       - 人际关系：老王 IS_BOSS_OF 我
-       - 因果关系：项目延期 CAUSED 焦虑
-       - 时间关系：事件A BEFORE 事件B
-    
-    以JSON格式返回：
-    {{
-        "entities": [...],
-        "relations": [...]
-    }}
-    """
-    
-    response = llm.invoke(prompt)
-    graph_data = json.loads(response.content)
-    
-    # 写入Neo4j
-    update_knowledge_graph(state["user_id"], graph_data)
-    
-    return state
+【职责】
+从日记中提取实体和关系，构建个人知识图谱，支持深度关系分析
+
+【输入契约】
+{
+  "user_id": int,
+  "diary_content": str,
+  "current_event": Dict (来自时间线管家)
+}
+
+【核心逻辑】
+1. 实体提取 (Entity Extraction)
+   类型:
+   - Person (人物): 姓名、关系类型
+   - Location (地点): 名称、类型 (workplace/home/public)
+   - Event (事件): 摘要、日期、情绪
+   - Emotion (情绪): 类型、强度 (1-10)
+
+2. 关系提取 (Relation Extraction)
+   人际关系:
+   - KNOWS (认识)
+   - IS_BOSS_OF (上下级)
+   - COLLEAGUE_OF (同事)
+   - FAMILY_OF (家人)
+   
+   事件关系:
+   - EXPERIENCED (经历)
+   - CAUSED_BY (由...引起)
+   - HAPPENED_AT (发生在)
+   - TRIGGERED (触发)
+   
+   因果关系:
+   - LEADS_TO (导致)
+   - BEFORE/AFTER (时间顺序)
+
+3. 图谱更新
+   - 创建新节点 (如果不存在)
+   - 建立关系边
+   - 更新节点属性 (如: mention_count++)
+
+4. 关系推理
+   示例:
+   IF 日记提到 "老王又批评我了"
+   THEN 推理:
+     - 老王 IS_BOSS_OF 用户
+     - 批评事件 TRIGGERED 压力情绪
+     - 压力 CAUSED_BY 老王
+
+【输出契约】
+{
+  "entities": [
+    {
+      "type": str (Person/Location/Event/Emotion),
+      "name": str,
+      "properties": Dict
+    }
+  ],
+  "relations": [
+    {
+      "from": str (实体名称),
+      "to": str (实体名称),
+      "type": str (关系类型),
+      "properties": Dict (可选)
+    }
+  ]
+}
+
+【性能约束】
+- 处理时间: < 2秒
+- Neo4j写入: 批量操作，单次 < 100个节点
+
+【图谱查询能力】
+支持的分析查询:
+1. 压力源分析
+   MATCH (u:User)-[:EXPERIENCED]->(e:Event)-[:TRIGGERED]->(em:Emotion {type: "压力"})
+   MATCH (e)-[:CAUSED_BY]->(p:Person)
+   RETURN p.name, COUNT(e) as stress_count
+
+2. 事件链分析
+   MATCH path = (e1:Event)-[:LEADS_TO*1..3]->(e2:Event)
+   RETURN path
+
+3. 人际关系网络
+   MATCH (u:User)-[:KNOWS]->(p:Person)
+   RETURN p, p.mention_count
+
+【错误处理】
+- 实体提取失败: 返回空列表，不阻断流程
+- Neo4j连接失败: 记录日志，降级为仅存MySQL
+- 关系冲突: 保留最新关系，更新时间戳
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-### 3.6 LangGraph 编排
+### 3.6 LangGraph 编排流程
 
-```python
-# 构建状态图
-workflow = StateGraph(AnalysisState)
+```
+工作流定义 (Workflow Definition)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-# 添加节点
-workflow.add_node("timeline_manager", timeline_manager_node)
-workflow.add_node("emotion_agent", emotion_agent_node)
-workflow.add_node("cognitive_agent", cognitive_agent_node)
-workflow.add_node("existence_agent", existence_agent_node)
-workflow.add_node("therapeutic_responder", therapeutic_responder_node)
-workflow.add_node("social_creator", social_content_creator_node)
-workflow.add_node("graph_builder", graph_builder_node)
+节点执行顺序:
 
-# 定义流程
-workflow.set_entry_point("timeline_manager")
-workflow.add_edge("timeline_manager", "emotion_agent")
-workflow.add_edge("emotion_agent", "cognitive_agent")
-workflow.add_edge("cognitive_agent", "existence_agent")
-workflow.add_edge("existence_agent", "therapeutic_responder")
-workflow.add_edge("therapeutic_responder", "social_creator")
-workflow.add_edge("social_creator", "graph_builder")
-workflow.add_edge("graph_builder", END)
+  START
+    ↓
+┌──────────────────┐
+│ Timeline Manager │ ← 提取事件，构建上下文
+└──────────────────┘
+    ↓
+┌──────────────────┐
+│ Emotion Agent    │ ← 分析行为和情绪层
+└──────────────────┘
+    ↓
+┌──────────────────┐
+│ Cognitive Agent  │ ← 分析思维和信念层
+└──────────────────┘
+    ↓
+┌──────────────────┐
+│ Existence Agent  │ ← 洞察存在层
+└──────────────────┘
+    ↓
+┌──────────────────┐
+│ Therapeutic Resp.│ ← 生成疗愈回复
+└──────────────────┘
+    ↓
+┌──────────────────┐
+│ Social Creator   │ ← 生成朋友圈文案
+└──────────────────┘
+    ↓
+┌──────────────────┐
+│ Graph Builder    │ ← 更新知识图谱
+└──────────────────┘
+    ↓
+   END
 
-# 编译
-app = workflow.compile()
+状态传递:
+每个节点接收 AnalysisState，处理后返回更新的 State
 
-# 执行
-result = app.invoke({
-    "user_id": 123,
-    "diary_id": 456,
-    "diary_content": "今天又被老板批评了...",
-    "user_profile": {...}
-})
+并发优化:
+- Timeline Manager 和 Graph Builder 可并行执行
+- Social Creator 可独立于心理分析流程
+
+错误恢复:
+- 任一节点失败不中断整体流程
+- 关键节点失败时降级处理
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
 ---
