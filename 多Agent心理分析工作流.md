@@ -35,8 +35,8 @@
 │ ────────────────────────────────────────────────────────────────────│
 │ 输入源:                                                               │
 │   1️⃣ 用户输入 (userId, diaryId, diaryContent)                       │
-│   2️⃣ MySQL - user_profiles 表 (用户画像)                            │
-│   3️⃣ MySQL - timeline_events 表 (历史时间轴)                        │
+│   2️⃣ PostgreSQL - user_profiles 表 (用户画像)                       │
+│   3️⃣ PostgreSQL - timeline_events 表 (历史时间轴)                   │
 │   4️⃣ Milvus - 向量数据库 (相似日记)                                 │
 │   5️⃣ Neo4j - 知识图谱 (人物关系)                                    │
 │                                                                       │
@@ -61,7 +61,7 @@
 │ 处理:                                                                 │
 │   • 从diaryContent提取关键事件                                       │
 │   • 检测连续模式 (基于timelineContext)                              │
-│   • 更新MySQL时间轴表                                                │
+│   • 更新PostgreSQL时间轴表                                           │
 │                                                                       │
 │ 输出内容:                                                             │
 │   ✓ 当前事件: 事件摘要、情绪标签、重要性评分、事件类型、相关实体    │
@@ -167,8 +167,8 @@
 │ 数据源层                                                             │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                      │
-│  [MySQL]          [Milvus]         [Neo4j]         [LLM API]        │
-│  用户画像          向量检索          知识图谱         GPT-4          │
+│  [PostgreSQL]     [Milvus]         [Neo4j]         [LLM API]        │
+│  用户画像          向量检索          知识图谱         DeepSeek V3    │
 │  时间轴表          日记向量          实体关系         分析推理        │
 │     ↓                ↓                ↓                ↓            │
 └─────┼────────────────┼────────────────┼────────────────┼────────────┘
@@ -183,12 +183,12 @@
 │  (读取)      (读写)      (只读)      (写入)                          │
 │                                                                      │
 │  读取:                                                               │
-│  • MySQL: user_profiles, timeline_events                            │
+│  • PostgreSQL: user_profiles, timeline_events                       │
 │  • Milvus: 向量检索                                                 │
 │  • Neo4j: 人物关系查询                                              │
 │                                                                      │
 │  写入:                                                               │
-│  • MySQL: timeline_events (Agent 1)                                 │
+│  • PostgreSQL: timeline_events (Agent 1)                            │
 │  • Neo4j: 实体和关系 (Agent 3)                                      │
 │                                                                      │
 └─────────────────────────────────────────────────────────────────────┘
@@ -216,7 +216,7 @@
 ┌──────────────────────────────────────────────────────────┐
 │ Step 1: 获取用户画像                                      │
 │ ────────────────────────────────────────────────────────│
-│ 数据源: MySQL - user_profiles 表                         │
+│ 数据源: PostgreSQL - user_profiles 表                    │
 │                                                           │
 │ 提取信息:                                                 │
 │   • identityTag: "职场精英"                              │
@@ -229,7 +229,7 @@
 ┌──────────────────────────────────────────────────────────┐
 │ Step 2: 获取时间轴上下文                                  │
 │ ────────────────────────────────────────────────────────│
-│ 数据源: MySQL - timeline_events 表                       │
+│ 数据源: PostgreSQL - timeline_events 表                  │
 │                                                           │
 │ 查询条件:                                                 │
 │   • user_id = 123                                        │
@@ -690,8 +690,8 @@
 │ Agent 0: 上下文收集器                                        │
 │ ─────────────────────────────────────────────────────────── │
 │ 收集:                                                        │
-│   ✓ 用户画像 (MySQL)                                        │
-│   ✓ 时间轴上下文 (MySQL)                                    │
+│   ✓ 用户画像 (PostgreSQL)                                   │
+│   ✓ 时间轴上下文 (PostgreSQL)                               │
 │   ✓ 相关记忆 (Milvus)                                       │
 │   ✓ 图谱关系 (Neo4j)                                        │
 │                                                              │
@@ -704,7 +704,7 @@
 │ 处理:                                                        │
 │   ✓ 提取关键事件                                            │
 │   ✓ 检测连续模式                                            │
-│   ✓ 更新时间轴 (MySQL)                                      │
+│   ✓ 更新时间轴 (PostgreSQL)                                 │
 │                                                              │
 │ 输出: State + currentEvent + detectedPatterns               │
 └─────────────────────────────────────────────────────────────┘
@@ -886,8 +886,8 @@ Agent 3处理后:
 
 | Agent | 输入来源 | 使用的State字段 | 外部数据源 | 输出字段 | 传递给下游 |
 |-------|---------|----------------|-----------|---------|-----------|
-| **Agent 0** | 用户输入 | userId, diaryId, diaryContent | MySQL (user_profiles, timeline_events)<br>Milvus (向量检索)<br>Neo4j (人物关系) | userProfile<br>timelineContext<br>relatedMemories<br>graphContext | 完整State → Agent 1 |
-| **Agent 1** | Agent 0 | diaryContent<br>timelineContext | LLM (事件提取)<br>MySQL (写入timeline_events) | currentEvent<br>detectedPatterns | State + 事件信息 → Agent 2 |
+| **Agent 0** | 用户输入 | userId, diaryId, diaryContent | PostgreSQL (user_profiles, timeline_events)<br>Milvus (向量检索)<br>Neo4j (人物关系) | userProfile<br>timelineContext<br>relatedMemories<br>graphContext | 完整State → Agent 1 |
+| **Agent 1** | Agent 0 | diaryContent<br>timelineContext | LLM (事件提取)<br>PostgreSQL (写入timeline_events) | currentEvent<br>detectedPatterns | State + 事件信息 → Agent 2 |
 | **Agent 2** | Agent 1 | diaryContent<br>userProfile<br>timelineContext<br>currentEvent | LLM (4次调用) | behaviorLayer<br>emotionLayer<br>cognitiveLayer<br>beliefLayer<br>coreSelfLayer<br>therapeuticResponse | State + 五层分析 → Agent 3 |
 | **Agent 3** | Agent 2 | currentEvent<br>behaviorLayer<br>emotionLayer | LLM (实体提取)<br>Neo4j (写入图谱) | graphUpdated<br>newEntities<br>newRelations | 完整State → 最终输出 |
 
@@ -902,7 +902,7 @@ Agent 3处理后:
                 ↓            ↓            ↓            ↓
              [读取]       [读写]       [只读]       [写入]
                 ↓            ↓            ↓            ↓
-             MySQL        MySQL         LLM         Neo4j
+          PostgreSQL   PostgreSQL      LLM         Neo4j
              Milvus       LLM          (4次)       LLM
              Neo4j                                 (1次)
              

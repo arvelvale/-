@@ -10,10 +10,10 @@
 | **移动端** | React Native | 跨平台，代码复用率高 |
 | **后端框架** | FastAPI (Python) | 原生异步，支持流式输出 |
 | **AI编排** | LangGraph | 有状态Agent，完美匹配需求 |
-| **LLM** | OpenAI GPT-4 / Claude | 心理分析需要强推理能力 |
+| **LLM** | DeepSeek V3 | 成本极低（¥1/百万tokens），推理能力强 |
 | **向量数据库** | Milvus | 多租户隔离，混合检索 |
 | **图数据库** | Neo4j | GraphRAG标准，关系查询强大 |
-| **关系数据库** | MySQL 8.0 | 成熟稳定，事务支持 |
+| **关系数据库** | PostgreSQL 16 | JSON支持好，全文检索强，开源免费 |
 | **缓存** | Redis | 高性能，支持多种数据结构 |
 | **消息队列** | RabbitMQ | 异步任务处理 |
 | **容器化** | Docker + K8s | 微服务部署，弹性伸缩 |
@@ -23,125 +23,154 @@
 
 ## 2. 数据库设计
 
-### 2.1 MySQL 关系数据库
+### 2.1 PostgreSQL 关系数据库
+
+**选择理由**：
+- ✅ **JSONB支持**：原生JSON类型，比MySQL的JSON性能更好
+- ✅ **全文检索**：内置强大的全文检索（支持中文分词）
+- ✅ **开源免费**：无商业授权风险
+- ✅ **扩展性强**：支持向量扩展（pgvector），可与Milvus互补
+- ✅ **事务强**：MVCC机制，并发性能好
 
 #### 2.1.1 用户表 (users)
 ```sql
 CREATE TABLE users (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    id BIGSERIAL PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     phone VARCHAR(20),
     avatar_url VARCHAR(255),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    last_login_at TIMESTAMP,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    last_login_at TIMESTAMPTZ,
     is_active BOOLEAN DEFAULT TRUE,
     is_premium BOOLEAN DEFAULT FALSE,
-    premium_expires_at TIMESTAMP,
-    INDEX idx_email (email),
-    INDEX idx_username (username)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    premium_expires_at TIMESTAMPTZ
+);
+
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_username ON users(username);
+
+-- 自动更新 updated_at 触发器
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
+FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 ```
 
 #### 2.1.2 用户画像表 (user_profiles)
 ```sql
 CREATE TABLE user_profiles (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    user_id BIGINT NOT NULL,
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     identity_tag VARCHAR(50),  -- 创业者/职场精英/文艺青年等
     current_state VARCHAR(50),  -- 迷茫/压力大/记录美好等
     personality_type VARCHAR(20),  -- MBTI类型
     social_style VARCHAR(50),  -- 朋友圈风格
-    catchphrases JSON,  -- 口头禅列表
-    preferences JSON,  -- 偏好数据
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    INDEX idx_user_id (user_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    catchphrases JSONB,  -- 口头禅列表（使用JSONB性能更好）
+    preferences JSONB,  -- 偏好数据
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_user_profiles_user_id ON user_profiles(user_id);
+CREATE TRIGGER update_user_profiles_updated_at BEFORE UPDATE ON user_profiles
+FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 ```
 
 #### 2.1.3 日记表 (diaries)
 ```sql
 CREATE TABLE diaries (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    user_id BIGINT NOT NULL,
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     title VARCHAR(200),
     content TEXT NOT NULL,
     content_html TEXT,  -- 富文本HTML
     diary_date DATE NOT NULL,
-    emotion_tags JSON,  -- 情绪标签数组
-    importance_score TINYINT DEFAULT 5,  -- 1-10
+    emotion_tags JSONB,  -- 情绪标签数组
+    importance_score SMALLINT DEFAULT 5 CHECK (importance_score BETWEEN 1 AND 10),
     word_count INT DEFAULT 0,
-    images JSON,  -- 图片URL数组
+    images JSONB,  -- 图片URL数组
     is_analyzed BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    INDEX idx_user_date (user_id, diary_date),
-    INDEX idx_user_created (user_id, created_at),
-    FULLTEXT INDEX ft_content (content)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    
+    -- 全文检索向量列（自动生成）
+    content_tsv TSVECTOR GENERATED ALWAYS AS (
+        to_tsvector('chinese', coalesce(title, '') || ' ' || content)
+    ) STORED
+);
+
+CREATE INDEX idx_diaries_user_date ON diaries(user_id, diary_date);
+CREATE INDEX idx_diaries_user_created ON diaries(user_id, created_at);
+CREATE INDEX idx_diaries_content_tsv ON diaries USING GIN(content_tsv);  -- 全文检索索引
+
+CREATE TRIGGER update_diaries_updated_at BEFORE UPDATE ON diaries
+FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 ```
 
 #### 2.1.4 时间轴表 (timeline_events)
 ```sql
 CREATE TABLE timeline_events (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    user_id BIGINT NOT NULL,
-    diary_id BIGINT,
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    diary_id BIGINT REFERENCES diaries(id) ON DELETE SET NULL,
     event_date DATE NOT NULL,
     event_summary VARCHAR(500) NOT NULL,
     emotion_tag VARCHAR(50),
-    importance_score TINYINT DEFAULT 5,
+    importance_score SMALLINT DEFAULT 5 CHECK (importance_score BETWEEN 1 AND 10),
     event_type VARCHAR(50),  -- work/relationship/health/achievement等
-    related_entities JSON,  -- 相关实体（人物/地点）
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (diary_id) REFERENCES diaries(id) ON DELETE SET NULL,
-    INDEX idx_user_date (user_id, event_date),
-    INDEX idx_emotion (user_id, emotion_tag)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    related_entities JSONB,  -- 相关实体（人物/地点）
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_timeline_user_date ON timeline_events(user_id, event_date DESC);
+CREATE INDEX idx_timeline_emotion ON timeline_events(user_id, emotion_tag);
+CREATE INDEX idx_timeline_entities ON timeline_events USING GIN(related_entities);  -- JSONB索引
 ```
 
 #### 2.1.5 AI分析记录表 (ai_analyses)
 ```sql
 CREATE TABLE ai_analyses (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    user_id BIGINT NOT NULL,
-    diary_id BIGINT NOT NULL,
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    diary_id BIGINT NOT NULL REFERENCES diaries(id) ON DELETE CASCADE,
     analysis_type VARCHAR(50),  -- satir/emotion/summary等
-    behavior_layer JSON,  -- 行为层分析
-    emotion_layer JSON,  -- 情绪层分析
-    cognitive_layer JSON,  -- 思维层分析
-    belief_layer JSON,  -- 信念层分析
-    core_self_layer JSON,  -- 存在层分析
+    behavior_layer JSONB,  -- 行为层分析
+    emotion_layer JSONB,  -- 情绪层分析
+    cognitive_layer JSONB,  -- 思维层分析
+    belief_layer JSONB,  -- 信念层分析
+    core_self_layer JSONB,  -- 存在层分析
     response_text TEXT,  -- AI回复文本
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (diary_id) REFERENCES diaries(id) ON DELETE CASCADE,
-    INDEX idx_user_diary (user_id, diary_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_ai_analyses_user_diary ON ai_analyses(user_id, diary_id);
+CREATE INDEX idx_ai_analyses_type ON ai_analyses(analysis_type);
 ```
 
 #### 2.1.6 朋友圈文案表 (social_posts)
 ```sql
 CREATE TABLE social_posts (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    user_id BIGINT NOT NULL,
-    diary_id BIGINT,
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    diary_id BIGINT REFERENCES diaries(id) ON DELETE SET NULL,
     generated_content TEXT NOT NULL,
     final_content TEXT,  -- 用户修改后的内容
     style_tag VARCHAR(50),  -- 风格标签
     is_used BOOLEAN DEFAULT FALSE,
-    user_modifications JSON,  -- 用户修改记录（用于学习）
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (diary_id) REFERENCES diaries(id) ON DELETE SET NULL,
-    INDEX idx_user_created (user_id, created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    user_modifications JSONB,  -- 用户修改记录（用于学习）
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_social_posts_user_created ON social_posts(user_id, created_at);
 ```
 
 ### 2.2 Milvus 向量数据库
@@ -316,11 +345,11 @@ Agent 0: 上下文收集器 (Context Collector)
 
 【核心逻辑】
 1. 获取用户画像
-   - 数据源: MySQL - user_profiles 表
+   - 数据源: PostgreSQL - user_profiles 表
    - 提取: identityTag, currentState, personalityType, socialStyle, catchphrases
 
 2. 获取时间轴上下文
-   - 数据源: MySQL - timeline_events 表
+   - 数据源: PostgreSQL - timeline_events 表
    - 查询: 最近7天的事件记录
    - 排序: 按日期倒序
 
@@ -354,7 +383,7 @@ Agent 0: 上下文收集器 (Context Collector)
 
 【性能约束】
 - 处理时间: < 0.5秒
-- 数据库查询: 4次读取（MySQL x2, Milvus x1, Neo4j x1）
+- 数据库查询: 4次读取（PostgreSQL x2, Milvus x1, Neo4j x1）
 
 【错误处理】
 - 用户画像缺失: 使用默认画像（INFP, 通用状态）
@@ -363,7 +392,7 @@ Agent 0: 上下文收集器 (Context Collector)
 - 图谱查询失败: 跳过图谱上下文，继续流程
 
 【依赖服务】
-- MySQL（用户画像、时间轴）
+- PostgreSQL（用户画像、时间轴）
 - Milvus（向量检索）
 - Neo4j（知识图谱）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -396,7 +425,7 @@ Agent A: 时间线管家 (Timeline Manager)
    - 提取相关实体（人物/地点）
 
 2. 时间轴更新
-   - 将事件存入MySQL时间轴表
+   - 将事件存入PostgreSQL时间轴表
    - 关联到用户和日记ID
 
 3. 模式检测
@@ -429,7 +458,7 @@ Agent A: 时间线管家 (Timeline Manager)
 - LLM Token消耗: < 500
 
 【数据持久化】
-- 目标表: timeline_events (MySQL)
+- 目标表: timeline_events (PostgreSQL)
 - 字段映射:
   - event_summary ← current_event.summary
   - emotion_tag ← current_event.emotion_tag
@@ -654,8 +683,8 @@ Agent C: 社交主编 (Social Content Creator)
 学习: 用户偏好文艺表达，喜欢"今日份"句式
 
 【数据持久化】
-- 目标表: social_posts (MySQL)
-- 学习数据: user_profiles.catchphrases (JSON字段)
+- 目标表: social_posts (PostgreSQL)
+- 学习数据: user_profiles.catchphrases (JSONB字段)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
@@ -754,7 +783,7 @@ Agent D: 知识图谱构建器 (Graph Builder)
 
 【错误处理】
 - 实体提取失败: 返回空列表，不阻断流程
-- Neo4j连接失败: 记录日志，降级为仅存MySQL
+- Neo4j连接失败: 记录日志，降级为仅存PostgreSQL
 - 关系冲突: 保留最新关系，更新时间戳
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
