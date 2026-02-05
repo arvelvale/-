@@ -2,6 +2,7 @@
 
 ## 整体流程概览
 
+### 简化版流程图
 ```
 用户写完日记
     ↓
@@ -10,20 +11,184 @@
 ┌─────────────────────────────────────────────────────────────┐
 │                    LangGraph 状态机                          │
 │                                                              │
-│  Agent 0: 上下文收集器 (Context Collector)                  │
-│         ↓                                                    │
-│  Agent 1: 时间线管家 (Timeline Manager)                     │
-│         ↓                                                    │
-│  Agent 2: 萨提亚分析师 (Satir Therapist)                    │
-│         ├─→ Node 2.1: 情绪侦探                              │
-│         ├─→ Node 2.2: 信念挖掘机                            │
-│         ├─→ Node 2.3: 灵魂摆渡人                            │
-│         └─→ Node 2.4: 疗愈回信生成器                        │
-│         ↓                                                    │
-│  Agent 3: 知识图谱构建器 (Graph Builder)                    │
-│         ↓                                                    │
-│  【输出】完整的心理分析报告                                  │
+│  Agent 0 → Agent 1 → Agent 2 → Agent 3                      │
+│  (收集)    (提取)    (分析)    (图谱)                        │
 └─────────────────────────────────────────────────────────────┘
+    ↓
+【输出】完整的心理分析报告
+```
+
+### 详细数据流图
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│ 用户输入                                                              │
+│ ────────────────────────────────────────────────────────────────────│
+│ • userId: 123                                                         │
+│ • diaryId: 456                                                        │
+│ • diaryContent: "今天又被老板批评了..."                             │
+└──────────────────────────────────────────────────────────────────────┘
+        │
+        ↓
+┌──────────────────────────────────────────────────────────────────────┐
+│ Agent 0: 上下文收集器 (Context Collector)                            │
+│ ────────────────────────────────────────────────────────────────────│
+│ 输入源:                                                               │
+│   1️⃣ 用户输入 (userId, diaryId, diaryContent)                       │
+│   2️⃣ MySQL - user_profiles 表 (用户画像)                            │
+│   3️⃣ MySQL - timeline_events 表 (历史时间轴)                        │
+│   4️⃣ Milvus - 向量数据库 (相似日记)                                 │
+│   5️⃣ Neo4j - 知识图谱 (人物关系)                                    │
+│                                                                       │
+│ 处理: 收集所有上下文信息                                             │
+│                                                                       │
+│ 输出: State {                                                         │
+│   userId, diaryId, diaryContent, diaryDate,                          │
+│   userProfile: {identityTag, personalityType, ...},                  │
+│   timelineContext: [{date, summary, emotion}, ...],                  │
+│   relatedMemories: [{snippet, similarity}, ...],                     │
+│   graphContext: {relatedPerson, stressCount}                         │
+│ }                                                                     │
+└──────────────────────────────────────────────────────────────────────┘
+        │
+        ↓ (传递完整State)
+┌──────────────────────────────────────────────────────────────────────┐
+│ Agent 1: 时间线管家 (Timeline Manager)                               │
+│ ────────────────────────────────────────────────────────────────────│
+│ 输入源:                                                               │
+│   1️⃣ Agent 0 输出的完整State                                        │
+│   2️⃣ LLM (用于事件提取)                                             │
+│                                                                       │
+│ 处理:                                                                 │
+│   • 从diaryContent提取关键事件                                       │
+│   • 检测连续模式 (基于timelineContext)                              │
+│   • 更新MySQL时间轴表                                                │
+│                                                                       │
+│ 输出: State + {                                                       │
+│   currentEvent: {summary, emotionTag, importanceScore, ...},         │
+│   detectedPatterns: [{pattern, severity}, ...]                       │
+│ }                                                                     │
+└──────────────────────────────────────────────────────────────────────┘
+        │
+        ↓ (传递State + currentEvent + detectedPatterns)
+┌──────────────────────────────────────────────────────────────────────┐
+│ Agent 2: 萨提亚分析师 (Satir Therapist)                              │
+│ ────────────────────────────────────────────────────────────────────│
+│ 输入源:                                                               │
+│   1️⃣ Agent 1 输出的完整State (包含所有上下文)                       │
+│   2️⃣ LLM (4次调用，每个子节点1次)                                   │
+│                                                                       │
+│ 处理: 五层深度分析 (顺序执行4个子节点)                              │
+│   ┌────────────────────────────────────────────────────────┐        │
+│   │ Node 2.1: 情绪侦探                                      │        │
+│   │ 输入: diaryContent + userProfile + timelineContext      │        │
+│   │ 输出: behaviorLayer + emotionLayer                      │        │
+│   └────────────────────────────────────────────────────────┘        │
+│        ↓                                                              │
+│   ┌────────────────────────────────────────────────────────┐        │
+│   │ Node 2.2: 信念挖掘机                                    │        │
+│   │ 输入: Node 2.1输出 + diaryContent                       │        │
+│   │ 输出: cognitiveLayer + beliefLayer                      │        │
+│   └────────────────────────────────────────────────────────┘        │
+│        ↓                                                              │
+│   ┌────────────────────────────────────────────────────────┐        │
+│   │ Node 2.3: 灵魂摆渡人                                    │        │
+│   │ 输入: Node 2.1+2.2输出 + timelineContext                │        │
+│   │ 输出: coreSelfLayer                                     │        │
+│   └────────────────────────────────────────────────────────┘        │
+│        ↓                                                              │
+│   ┌────────────────────────────────────────────────────────┐        │
+│   │ Node 2.4: 疗愈回信生成器                                │        │
+│   │ 输入: 所有层分析结果 + userProfile.personalityType      │        │
+│   │ 输出: therapeuticResponse                               │        │
+│   └────────────────────────────────────────────────────────┘        │
+│                                                                       │
+│ 输出: State + {                                                       │
+│   behaviorLayer, emotionLayer, cognitiveLayer,                       │
+│   beliefLayer, coreSelfLayer, therapeuticResponse                    │
+│ }                                                                     │
+└──────────────────────────────────────────────────────────────────────┘
+        │
+        ↓ (传递State + 五层分析结果)
+┌──────────────────────────────────────────────────────────────────────┐
+│ Agent 3: 知识图谱构建器 (Graph Builder)                              │
+│ ────────────────────────────────────────────────────────────────────│
+│ 输入源:                                                               │
+│   1️⃣ Agent 2 输出的完整State (包含所有分析结果)                     │
+│   2️⃣ LLM (用于实体关系提取)                                         │
+│   3️⃣ Neo4j - 知识图谱 (写入)                                        │
+│                                                                       │
+│ 处理:                                                                 │
+│   • 从currentEvent和分析结果中提取实体                               │
+│   • 建立实体关系 (Person-Event-Emotion)                             │
+│   • 更新Neo4j图谱                                                    │
+│   • 推理隐含关系 (如: 老板 IS_BOSS_OF 用户)                         │
+│                                                                       │
+│ 输出: State + {                                                       │
+│   graphUpdated: true,                                                 │
+│   newEntities: ["老板", "被批评事件"],                              │
+│   newRelations: ["老板 IS_BOSS_OF 用户", ...]                       │
+│ }                                                                     │
+└──────────────────────────────────────────────────────────────────────┘
+        │
+        ↓
+┌──────────────────────────────────────────────────────────────────────┐
+│ 最终输出: 完整的心理分析报告                                         │
+│ ────────────────────────────────────────────────────────────────────│
+│ {                                                                     │
+│   traceId: "550e8400...",                                             │
+│   userId: 123,                                                        │
+│   diaryId: 456,                                                       │
+│                                                                       │
+│   // 萨提亚五层分析                                                  │
+│   behaviorLayer: {event, copingStyle},                               │
+│   emotionLayer: {surface, underlying},                               │
+│   cognitiveLayer: {thinking},                                        │
+│   beliefLayer: {belief},                                             │
+│   coreSelfLayer: {desire, lifeEnergy},                               │
+│                                                                       │
+│   // 疗愈回复                                                        │
+│   therapeuticResponse: "我看到了你的委屈...",                        │
+│                                                                       │
+│   // 元数据                                                          │
+│   processingTime: 5.6,                                                │
+│   timestamp: "2026-02-05T15:30:05Z"                                   │
+│ }                                                                     │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### 数据依赖关系图
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ 数据源层                                                             │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  [MySQL]          [Milvus]         [Neo4j]         [LLM API]        │
+│  用户画像          向量检索          知识图谱         GPT-4          │
+│  时间轴表          日记向量          实体关系         分析推理        │
+│     ↓                ↓                ↓                ↓            │
+└─────┼────────────────┼────────────────┼────────────────┼────────────┘
+      │                │                │                │
+      └────────┬───────┴────────┬───────┴────────┬───────┘
+               ↓                ↓                ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│ Agent层                                                              │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  Agent 0 ──→ Agent 1 ──→ Agent 2 ──→ Agent 3                        │
+│  (读取)      (读写)      (只读)      (写入)                          │
+│                                                                      │
+│  读取:                                                               │
+│  • MySQL: user_profiles, timeline_events                            │
+│  • Milvus: 向量检索                                                 │
+│  • Neo4j: 人物关系查询                                              │
+│                                                                      │
+│  写入:                                                               │
+│  • MySQL: timeline_events (Agent 1)                                 │
+│  • Neo4j: 实体和关系 (Agent 3)                                      │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -625,7 +790,172 @@ IF Agent 3 失败（图谱更新失败）
 
 ---
 
+## State传递详解
+
+### LangGraph State结构
+
+```python
+class AnalysisState(TypedDict):
+    # ============ 基础信息 (Agent 0输入) ============
+    userId: int
+    diaryId: int
+    diaryContent: str
+    diaryDate: str
+    
+    # ============ Agent 0 输出 ============
+    userProfile: Dict  # {identityTag, currentState, personalityType, socialStyle, catchphrases}
+    timelineContext: List[Dict]  # [{date, summary, emotion, importance}, ...]
+    relatedMemories: List[Dict]  # [{diaryId, snippet, similarity}, ...]
+    graphContext: Dict  # {relatedPerson, stressCount}
+    
+    # ============ Agent 1 输出 ============
+    currentEvent: Dict  # {summary, emotionTag, importanceScore, eventType, entities}
+    detectedPatterns: List[Dict]  # [{pattern, severity}, ...]
+    
+    # ============ Agent 2 输出 ============
+    behaviorLayer: Dict  # {event, copingStyle}
+    emotionLayer: Dict  # {surface, underlying}
+    cognitiveLayer: Dict  # {thinking}
+    beliefLayer: Dict  # {belief}
+    coreSelfLayer: Dict  # {desire, lifeEnergy}
+    therapeuticResponse: str
+    
+    # ============ Agent 3 输出 ============
+    graphUpdated: bool
+    newEntities: List[str]
+    newRelations: List[str]
+    
+    # ============ 元数据 ============
+    processingTime: float
+    error: Optional[str]
+```
+
+### State传递流程
+
+```
+初始State (用户输入):
+{
+  userId: 123,
+  diaryId: 456,
+  diaryContent: "今天又被老板批评了...",
+  diaryDate: "2026-02-05"
+}
+        ↓
+Agent 0处理后:
+{
+  ...初始State,
+  userProfile: {...},
+  timelineContext: [...],
+  relatedMemories: [...],
+  graphContext: {...}
+}
+        ↓
+Agent 1处理后:
+{
+  ...Agent 0的State,
+  currentEvent: {...},
+  detectedPatterns: [...]
+}
+        ↓
+Agent 2处理后:
+{
+  ...Agent 1的State,
+  behaviorLayer: {...},
+  emotionLayer: {...},
+  cognitiveLayer: {...},
+  beliefLayer: {...},
+  coreSelfLayer: {...},
+  therapeuticResponse: "..."
+}
+        ↓
+Agent 3处理后:
+{
+  ...Agent 2的State,
+  graphUpdated: true,
+  newEntities: [...],
+  newRelations: [...]
+}
+```
+
+---
+
+## 输入输出矩阵表
+
+| Agent | 输入来源 | 使用的State字段 | 外部数据源 | 输出字段 | 传递给下游 |
+|-------|---------|----------------|-----------|---------|-----------|
+| **Agent 0** | 用户输入 | userId, diaryId, diaryContent | MySQL (user_profiles, timeline_events)<br>Milvus (向量检索)<br>Neo4j (人物关系) | userProfile<br>timelineContext<br>relatedMemories<br>graphContext | 完整State → Agent 1 |
+| **Agent 1** | Agent 0 | diaryContent<br>timelineContext | LLM (事件提取)<br>MySQL (写入timeline_events) | currentEvent<br>detectedPatterns | State + 事件信息 → Agent 2 |
+| **Agent 2** | Agent 1 | diaryContent<br>userProfile<br>timelineContext<br>currentEvent | LLM (4次调用) | behaviorLayer<br>emotionLayer<br>cognitiveLayer<br>beliefLayer<br>coreSelfLayer<br>therapeuticResponse | State + 五层分析 → Agent 3 |
+| **Agent 3** | Agent 2 | currentEvent<br>behaviorLayer<br>emotionLayer | LLM (实体提取)<br>Neo4j (写入图谱) | graphUpdated<br>newEntities<br>newRelations | 完整State → 最终输出 |
+
+---
+
+## 数据流向图（横向视角）
+
+```
+┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐
+│ 用户输入 │→│ Agent 0 │→│ Agent 1 │→│ Agent 2 │→│ Agent 3 │
+└─────────┘  └─────────┘  └─────────┘  └─────────┘  └─────────┘
+                ↓            ↓            ↓            ↓
+             [读取]       [读写]       [只读]       [写入]
+                ↓            ↓            ↓            ↓
+             MySQL        MySQL         LLM         Neo4j
+             Milvus       LLM          (4次)       LLM
+             Neo4j                                 (1次)
+             
+State大小变化:
+  初始: ~0.5KB
+    ↓
+  +5KB (上下文)
+    ↓
+  +2KB (事件)
+    ↓
+  +8KB (五层分析)
+    ↓
+  +1KB (图谱信息)
+    ↓
+  最终: ~16.5KB
+```
+
+---
+
+## 关键设计决策
+
+### 为什么需要Agent 0？
+❌ **错误设计**: 每个Agent自己去查数据库
+- 导致重复查询（每个Agent都查用户画像）
+- 数据不一致（查询时间不同）
+- 性能浪费
+
+✅ **正确设计**: Agent 0统一收集上下文
+- 一次性收集所有需要的数据
+- 保证数据一致性
+- 后续Agent只需要读取State
+
+### 为什么Agent 2有4个子节点？
+萨提亚冰山模型是**层层递进**的：
+1. 先看表面（行为、情绪）
+2. 再挖深层（思维、信念）
+3. 最后触及核心（存在、渴望）
+4. 基于理解生成回复
+
+如果一次性分析，LLM容易：
+- 遗漏某些层次
+- 分析不够深入
+- 逻辑跳跃
+
+### 为什么Agent 3放在最后？
+知识图谱更新是**辅助功能**：
+- 不影响用户体验（用户不关心图谱）
+- 可以异步执行
+- 失败了也不影响心理分析结果
+
+如果放在前面，图谱更新失败会阻塞整个流程。
+
+---
+
 **文档版本**: v1.0  
 **创建日期**: 2026-02-05  
+**更新日期**: 2026-02-05  
 **维护团队**: AI团队  
 **用途**: 开发参考、系统理解、问题排查
