@@ -1,14 +1,38 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { authApi } from '../lib/api'
 
 export default function LoginPage() {
   const navigate = useNavigate()
   const [isLogin, setIsLogin] = useState(true)
   const [form, setForm] = useState({ username: '', email: '', password: '' })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    navigate('/diary')
+    setError('')
+    setLoading(true)
+    try {
+      if (isLogin) {
+        const res = await authApi.login({ email: form.email, password: form.password })
+        const data = res.data?.data
+        localStorage.setItem('token', data.token)
+        localStorage.setItem('userId', String(data.userId))
+      } else {
+        await authApi.register({ username: form.username, email: form.email, password: form.password })
+        const res = await authApi.login({ email: form.email, password: form.password })
+        const data = res.data?.data
+        localStorage.setItem('token', data.token)
+        localStorage.setItem('userId', String(data.userId))
+      }
+      navigate('/diary')
+    } catch (err: any) {
+      const msg = err.response?.data?.error?.message ?? (isLogin ? '邮箱或密码错误' : '注册失败，请检查信息')
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -79,10 +103,16 @@ export default function LoginPage() {
               />
             </div>
 
-            <button type="submit"
-              className="w-full py-3 rounded-xl text-white font-medium text-sm shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200"
+            {error && (
+              <div className="px-4 py-2.5 rounded-xl bg-[#FFF0EE] border border-[#EF5350]/20 text-sm text-[#EF5350]">
+                {error}
+              </div>
+            )}
+
+            <button type="submit" disabled={loading}
+              className="w-full py-3 rounded-xl text-white font-medium text-sm shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
               style={{ background: 'linear-gradient(135deg, #7C8FD4, #C4B5FD)' }}>
-              {isLogin ? '登录' : '注册'}
+              {loading ? '请稍候...' : (isLogin ? '登录' : '注册')}
             </button>
           </form>
 
