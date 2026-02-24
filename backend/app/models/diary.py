@@ -5,10 +5,12 @@
 from datetime import date, datetime, timezone
 
 from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, Integer, SmallInteger, String, Text
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.core.types import get_json_type
+
+CompatJSON = get_json_type()
 
 
 class Diary(Base):
@@ -21,10 +23,10 @@ class Diary(Base):
     content_html: Mapped[str | None] = mapped_column(Text, nullable=True, comment="富文本HTML")
     diary_date: Mapped[date] = mapped_column(Date, nullable=False)
 
-    emotion_tags: Mapped[dict | None] = mapped_column(JSONB, nullable=True, comment="情绪标签数组")
+    emotion_tags: Mapped[dict | None] = mapped_column(CompatJSON, nullable=True, comment="情绪标签数组")
     importance_score: Mapped[int] = mapped_column(SmallInteger, default=5, comment="重要性评分1-10")
     word_count: Mapped[int] = mapped_column(Integer, default=0)
-    images: Mapped[dict | None] = mapped_column(JSONB, nullable=True, comment="图片URL数组")
+    images: Mapped[dict | None] = mapped_column(CompatJSON, nullable=True, comment="图片URL数组")
     is_analyzed: Mapped[bool] = mapped_column(Boolean, default=False)
 
     created_at: Mapped[datetime] = mapped_column(

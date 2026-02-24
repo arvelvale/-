@@ -1,6 +1,7 @@
 """
-印记 - PostgreSQL 数据库连接管理
+印记 - 数据库连接管理
 使用 SQLAlchemy 2.0 异步引擎
+支持 PostgreSQL（生产）和 SQLite（本地开发）
 """
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -10,15 +11,22 @@ from app.config import get_settings
 
 settings = get_settings()
 
-# 异步引擎
-engine = create_async_engine(
-    settings.database_url,
-    echo=settings.debug,
-    pool_size=20,
-    max_overflow=10,
-    pool_pre_ping=True,
-    pool_recycle=3600,
-)
+# 异步引擎（根据配置选择 PostgreSQL 或 SQLite）
+if settings.use_sqlite:
+    engine = create_async_engine(
+        settings.database_url,
+        echo=settings.debug,
+        connect_args={"check_same_thread": False},
+    )
+else:
+    engine = create_async_engine(
+        settings.database_url,
+        echo=settings.debug,
+        pool_size=20,
+        max_overflow=10,
+        pool_pre_ping=True,
+        pool_recycle=3600,
+    )
 
 # 异步Session工厂
 async_session_factory = async_sessionmaker(
@@ -49,11 +57,12 @@ async def close_db():
 
 
 async def get_db() -> AsyncSession:
-    """获取数据库Session（依赖注入）"""
+    """获取数据库Session（依赖注入）
+    注意: 事务由Service层自行管理（commit/rollback）
+    """
     async with async_session_factory() as session:
         try:
             yield session
-            await session.commit()
         except Exception:
             await session.rollback()
             raise

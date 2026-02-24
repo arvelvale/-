@@ -26,11 +26,17 @@ async def lifespan(app: FastAPI):
     logger.info(f"🚀 {settings.app_name} v{settings.app_version} 正在启动...")
     logger.info(f"📍 环境: {settings.app_env}")
 
-    await init_db()
-    logger.info("✅ PostgreSQL 连接就绪")
+    try:
+        await init_db()
+        logger.info("✅ PostgreSQL 连接就绪")
+    except Exception as e:
+        logger.warning(f"⚠️ PostgreSQL 连接失败: {e}（应用仍可启动，但数据库功能不可用）")
 
-    await init_redis()
-    logger.info("✅ Redis 连接就绪")
+    try:
+        await init_redis()
+        logger.info("✅ Redis 连接就绪")
+    except Exception as e:
+        logger.warning(f"⚠️ Redis 连接失败: {e}（应用仍可启动，但缓存功能不可用）")
 
     logger.info(f"🌐 服务运行在 http://{settings.host}:{settings.port}")
 

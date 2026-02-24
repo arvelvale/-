@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     postgres_password: str = "yinji_password"
     postgres_db: str = "yinji_db"
 
+    # 开发模式：无Docker时自动使用SQLite
+    use_sqlite: bool = False
+
     # Redis
     redis_host: str = "localhost"
     redis_port: int = 6379
@@ -87,7 +90,9 @@ class Settings(BaseSettings):
 
     @property
     def database_url(self) -> str:
-        """PostgreSQL 异步连接字符串"""
+        """数据库异步连接字符串"""
+        if self.use_sqlite:
+            return "sqlite+aiosqlite:///./yinji_dev.db"
         return (
             f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
@@ -95,7 +100,9 @@ class Settings(BaseSettings):
 
     @property
     def database_url_sync(self) -> str:
-        """PostgreSQL 同步连接字符串（Alembic迁移用）"""
+        """数据库同步连接字符串（Alembic迁移用）"""
+        if self.use_sqlite:
+            return "sqlite:///./yinji_dev.db"
         return (
             f"postgresql://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"

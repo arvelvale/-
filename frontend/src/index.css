@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #7C8FD4;
+  --color-primary-light: #A5B4FC;
+  --color-primary-dark: #5B6FBE;
+  --color-accent: #C4B5FD;
+  --color-bg-start: #EEF1FF;
+  --color-bg-end: #F5F0FF;
+  --color-sidebar-bg: #F0F4FF;
+  --color-card: #FFFFFF;
+  --color-text: #2D3250;
+  --color-text-muted: #8A94B8;
+
+  --font-family-sans: 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', system-ui, sans-serif;
+  --radius-card: 16px;
+  --shadow-card: 0 4px 24px rgba(100, 120, 200, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-family-sans);
+  background: linear-gradient(135deg, #EEF1FF 0%, #F5F0FF 50%, #EFF6FF 100%);
+  min-height: 100vh;
+  color: #2D3250;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #C4C9E8; border-radius: 4px; }
+
+/* Emotion tag pill styles */
+.emotion-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 2px solid transparent;
+}
+.emotion-pill.active { border-color: currentColor; }
+
+/* Glass card */
+.glass-card {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(100, 120, 200, 0.08);
+}
+
+/* Slider custom */
+input[type=range] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(to right, #7C8FD4, #C4B5FD);
+  outline: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #7C8FD4;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(124,143,212,0.4);
+}

@@ -5,10 +5,12 @@
 from datetime import date, datetime, timezone
 
 from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, SmallInteger, String
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.core.types import get_json_type
+
+CompatJSON = get_json_type()
 
 
 class TimelineEvent(Base):
@@ -23,7 +25,7 @@ class TimelineEvent(Base):
     emotion_tag: Mapped[str | None] = mapped_column(String(50), nullable=True)
     importance_score: Mapped[int] = mapped_column(SmallInteger, default=5, comment="重要性评分1-10")
     event_type: Mapped[str | None] = mapped_column(String(50), nullable=True, comment="work/relationship/health/achievement")
-    related_entities: Mapped[dict | None] = mapped_column(JSONB, nullable=True, comment="相关实体（人物/地点）")
+    related_entities: Mapped[dict | None] = mapped_column(CompatJSON, nullable=True, comment="相关实体（人物/地点）")
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)

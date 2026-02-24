@@ -5,10 +5,12 @@
 from datetime import datetime, timezone
 
 from sqlalchemy import Boolean, DateTime, String, BigInteger, ForeignKey, Text
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.core.types import get_json_type
+
+CompatJSON = get_json_type()
 
 
 class User(Base):
@@ -50,8 +52,8 @@ class UserProfile(Base):
     current_state: Mapped[str | None] = mapped_column(String(50), nullable=True, comment="当前状态: 迷茫/压力大/记录美好等")
     personality_type: Mapped[str | None] = mapped_column(String(20), nullable=True, comment="MBTI类型")
     social_style: Mapped[str | None] = mapped_column(String(50), nullable=True, comment="朋友圈风格")
-    catchphrases: Mapped[dict | None] = mapped_column(JSONB, nullable=True, comment="口头禅列表")
-    preferences: Mapped[dict | None] = mapped_column(JSONB, nullable=True, comment="偏好数据")
+    catchphrases: Mapped[dict | None] = mapped_column(CompatJSON, nullable=True, comment="口头禅列表")
+    preferences: Mapped[dict | None] = mapped_column(CompatJSON, nullable=True, comment="偏好数据")
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
