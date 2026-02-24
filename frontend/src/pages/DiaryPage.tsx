@@ -168,8 +168,8 @@ export default function DiaryPage() {
   return (
     <>
       <Toast msg={toast} />
-      {/* root: exact viewport minus header, no overflow on the container itself */}
-      <div className="flex h-full overflow-hidden">
+      {/* root: fills parent <main> via absolute inset */}
+      <div className="absolute inset-0 flex overflow-hidden">
 
         {/* ── Sidebar ── */}
         <aside className="w-52 flex-shrink-0 flex flex-col overflow-y-auto border-r border-white/60 py-3 px-2.5"

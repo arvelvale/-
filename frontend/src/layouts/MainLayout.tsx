@@ -52,7 +52,7 @@ export default function MainLayout() {
       </header>
 
       {/* Page Content */}
-      <main className="flex-1 overflow-hidden">
+      <main className="flex-1 overflow-hidden w-full relative">
         <Outlet />
       </main>
     </div>

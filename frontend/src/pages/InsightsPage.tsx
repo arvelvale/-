@@ -126,7 +126,7 @@ export default function InsightsPage() {
   while (cells.length % 7 !== 0) cells.push(null)
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="absolute inset-0 overflow-y-auto">
       <div className="p-5">
         <h1 className="text-xl font-bold text-[#2D3250] mb-5">数据调析</h1>
 

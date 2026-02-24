@@ -96,6 +96,55 @@ class AuthService:
             "expiresAt": expires_at.isoformat(),
         }
 
+    async def login_or_register_by_email(self, email: str, username: str) -> dict:
+        """邮箱验证码登录/注册：已有账号直接登录，否则自动注册"""
+        result = await self.db.execute(select(User).where(User.email == email))
+        user = result.scalar_one_or_none()
+
+        if not user:
+            # 自动注册：生成随机密码（用户不需要记，后续可通过验证码登录）
+            import secrets
+            random_pw = secrets.token_hex(16)
+            # 确保用户名不重复
+            base_username = username
+            suffix = 0
+            while True:
+                uname = base_username if suffix == 0 else f"{base_username}{suffix}"
+                res2 = await self.db.execute(select(User).where(User.username == uname))
+                if not res2.scalar_one_or_none():
+                    break
+                suffix += 1
+            user = User(
+                username=uname,
+                email=email,
+                password_hash=hash_password(random_pw),
+            )
+            self.db.add(user)
+            await self.db.flush()
+            profile = UserProfile(user_id=user.id)
+            self.db.add(profile)
+            await self.db.commit()
+            await self.db.refresh(user)
+            logger.info(f"验证码自动注册: id={user.id}, email={email}")
+        else:
+            if not user.is_active:
+                raise ValueError("账号已被禁用")
+            user.last_login_at = datetime.now(timezone.utc)
+            await self.db.commit()
+            logger.info(f"验证码登录: id={user.id}, email={email}")
+
+        access_token, expires_at = create_access_token(user.id, user.username)
+        refresh_token = create_refresh_token(user.id)
+
+        return {
+            "userId": user.id,
+            "username": user.username,
+            "email": user.email,
+            "token": access_token,
+            "refreshToken": refresh_token,
+            "expiresAt": expires_at.isoformat(),
+        }
+
     async def refresh_token(self, refresh_token_str: str) -> dict:
         """刷新Token"""
         payload = decode_token(refresh_token_str)

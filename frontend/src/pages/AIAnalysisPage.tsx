@@ -69,7 +69,7 @@ export default function AIAnalysisPage() {
   })
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="absolute inset-0 overflow-y-auto">
       <div className="max-w-3xl mx-auto p-5">
 
         {/* Header */}

@@ -79,6 +79,16 @@ class Settings(BaseSettings):
     oss_endpoint: str = ""
     oss_region: str = "cn-hangzhou"
 
+    # QQ邮箱 SMTP
+    qq_email: str = ""
+    qq_email_auth_code: str = ""
+    smtp_host: str = "smtp.qq.com"
+    smtp_port: int = 465
+    smtp_secure: bool = True
+
+    # 验证码有效期（秒）
+    email_code_expire_seconds: int = 300
+
     # 限流
     rate_limit_free: int = 100
     rate_limit_premium: int = 1000

@@ -93,7 +93,7 @@ export default function ProfilePage() {
   return (
     <>
       <Toast msg={toast} />
-      <div className="h-full overflow-y-auto">
+      <div className="absolute inset-0 overflow-y-auto">
         <div className="max-w-2xl mx-auto p-5 space-y-4">
 
           {/* Header Card */}
