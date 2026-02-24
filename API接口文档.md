@@ -145,7 +145,76 @@ Content-Type: application/json
 }
 ```
 
-### 2.3 刷新Token
+### 2.3 发送邮箱验证码
+
+```http
+POST /v1/auth/send-code
+Content-Type: application/json
+```
+
+**请求参数**
+```json
+{
+  "email": "user@example.com"
+}
+```
+
+**响应示例**
+```json
+{
+  "traceId": "550e8400-e29b-41d4-a716-446655440000",
+  "success": true,
+  "data": {
+    "message": "验证码已发送"
+  },
+  "timestamp": "2026-02-24T16:00:00Z"
+}
+```
+
+**说明**
+- 验证码为6位数字，有效期5分钟
+- 同一邮箱60秒内只能发送一次（前端控制倒计时）
+- 开发环境未配置QQ邮箱时，验证码会打印到后端日志
+
+### 2.4 邮箱验证码登录/注册
+
+```http
+POST /v1/auth/email-login
+Content-Type: application/json
+```
+
+**请求参数**
+```json
+{
+  "email": "user@example.com",
+  "code": "123456",
+  "username": "我的昵称"  // 可选，注册时使用，默认为邮箱前缀
+}
+```
+
+**响应示例**
+```json
+{
+  "traceId": "550e8400-e29b-41d4-a716-446655440000",
+  "success": true,
+  "data": {
+    "userId": 123,
+    "username": "我的昵称",
+    "email": "user@example.com",
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "expiresAt": "2026-03-03T16:00:00Z"
+  },
+  "timestamp": "2026-02-24T16:00:00Z"
+}
+```
+
+**说明**
+- 验证码正确 → 自动完成登录（已有账号）或注册（首次）
+- 注册时自动生成随机密码（用户无需记忆，后续可通过验证码登录）
+- 用户名重复时自动添加数字后缀
+
+### 2.5 刷新Token
 
 ```http
 POST /v1/auth/refresh
