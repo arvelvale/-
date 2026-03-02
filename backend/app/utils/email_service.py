@@ -7,6 +7,7 @@ import random
 import smtplib
 import ssl
 import time
+from email.header import Header
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Dict, Tuple
@@ -110,7 +111,7 @@ def _send_smtp(to_email: str, code: str) -> None:
     """同步SMTP发送（在executor中调用）"""
     msg = MIMEMultipart("alternative")
     msg["Subject"] = f"【印记】验证码：{code}"
-    msg["From"] = f"印记 <{settings.qq_email}>"
+    msg["From"] = f"{Header('印记', 'utf-8').encode()} <{settings.qq_email}>"
     msg["To"] = to_email
 
     msg.attach(MIMEText(_build_email_html(code), "html", "utf-8"))
