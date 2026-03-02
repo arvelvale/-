@@ -17,16 +17,22 @@
   --shadow-card: 0 4px 24px rgba(100, 120, 200, 0.08);
 }
 
-* {
+*, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
+html, body, #root {
+  height: 100%;
+  width: 100%;
+}
+
 body {
   font-family: var(--font-family-sans);
   background: linear-gradient(135deg, #EEF1FF 0%, #F5F0FF 50%, #EFF6FF 100%);
-  min-height: 100vh;
+  background-attachment: fixed;
+  min-height: 100%;
   color: #2D3250;
   -webkit-font-smoothing: antialiased;
 }

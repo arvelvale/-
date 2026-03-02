@@ -130,15 +130,13 @@ export default function LoginPage() {
     <>
       <Toast msg={toast.msg} type={toast.type} />
 
-      <div className="min-h-screen flex items-center justify-center p-4"
-        style={{ background: 'linear-gradient(135deg,#EEF1FF 0%,#F5F0FF 60%,#EFF6FF 100%)' }}>
+      <div className="min-h-full flex items-center justify-center p-6">
 
         {/* Card: left bg + right form */}
-        <div className="w-full max-w-3xl flex rounded-3xl overflow-hidden shadow-2xl"
-          style={{ boxShadow: '0 24px 80px rgba(100,120,200,0.18)' }}>
+        <div className="w-full max-w-4xl flex rounded-3xl overflow-hidden" style={{ minHeight: 560, boxShadow: '0 24px 80px rgba(100,120,200,0.22)' }}>
 
           {/* ── Left: Background Panel ── */}
-          <div className="hidden md:flex w-5/12 flex-col justify-between p-10 relative overflow-hidden flex-shrink-0"
+          <div className="hidden md:flex w-5/12 flex-col justify-between p-12 relative overflow-hidden flex-shrink-0"
             style={{ background: 'linear-gradient(145deg,#7C8FD4 0%,#A78BFA 60%,#C4B5FD 100%)' }}>
 
             {/* Decorative bubbles */}
@@ -191,7 +189,7 @@ export default function LoginPage() {
           </div>
 
           {/* ── Right: Form Panel ── */}
-          <div className="flex-1 bg-white flex flex-col justify-center p-8 md:p-12">
+          <div className="flex-1 bg-white flex flex-col justify-center px-12 py-10">
 
             {/* Mobile logo */}
             <div className="flex items-center gap-2 mb-8 md:hidden">
