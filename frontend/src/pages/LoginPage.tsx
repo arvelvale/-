@@ -137,93 +137,96 @@ export default function LoginPage() {
     <>
       <Toast msg={toast.msg} type={toast.type} />
 
-      {/* 全屏背景容器 */}
-      <div className="min-h-full flex items-center justify-center p-8"
-        style={{ background: 'linear-gradient(135deg,#f8f7ff 0%,#f0eeff 40%,#eef4ff 100%)' }}>
+      {/* 全屏左右分栏，无卡片、无阴影、无圆角 */}
+      <div className="flex h-screen w-full overflow-hidden bg-white">
 
-        {/* 卡片主体：左右分栏，撑满可用宽度 */}
-        <div className="w-full max-w-5xl flex rounded-3xl overflow-hidden shadow-2xl"
-          style={{ minHeight: 620 }}>
+        {/* ══════════════════════════════════════
+            左侧：品牌区，占 40%，深色暗夜
+        ══════════════════════════════════════ */}
+        <div className="hidden md:flex w-[40%] h-full flex-col justify-between p-16 relative overflow-hidden flex-shrink-0 bg-slate-900">
 
-          {/* ══════════════════════════════════════
-              左侧：深色品牌区 bg-slate-900
-          ══════════════════════════════════════ */}
-          <div className="hidden md:flex w-5/12 flex-col justify-between p-12 bg-slate-900 relative overflow-hidden flex-shrink-0">
+          {/* 光晕装饰 */}
+          <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full opacity-20"
+            style={{ background: 'radial-gradient(circle,#a78bfa,transparent 70%)' }} />
+          <div className="absolute -bottom-16 -left-16 w-64 h-64 rounded-full opacity-10"
+            style={{ background: 'radial-gradient(circle,#818cf8,transparent 70%)' }} />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full opacity-5"
+            style={{ background: 'radial-gradient(circle,#c4b5fd,transparent 60%)' }} />
 
-            {/* 顶部光晕装饰 */}
-            <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full opacity-20"
-              style={{ background: 'radial-gradient(circle,#a78bfa,transparent 70%)' }} />
-            <div className="absolute bottom-0 -left-12 w-56 h-56 rounded-full opacity-10"
-              style={{ background: 'radial-gradient(circle,#818cf8,transparent 70%)' }} />
-
-            {/* Logo 区 */}
-            <div className="relative z-10">
-              <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-white text-lg font-semibold mb-5"
-                style={{ background: 'linear-gradient(135deg,#818cf8,#a78bfa)' }}>
-                印
-              </div>
-              <p className="text-slate-400 text-sm tracking-wider uppercase">印记 · Yinji</p>
+          {/* Logo 左上 */}
+          <div className="relative z-10 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-base font-semibold flex-shrink-0"
+              style={{ background: 'linear-gradient(135deg,#818cf8,#a78bfa)' }}>
+              印
             </div>
-
-            {/* 中间大标语 */}
-            <div className="relative z-10">
-              <p className="text-white text-3xl font-light leading-relaxed tracking-wide">
-                每一篇日记，<br />
-                <span className="text-violet-300">都是一次</span><br />
-                与内心的相遇。
-              </p>
-              <div className="mt-6 w-10 h-px bg-violet-400/50" />
-            </div>
-
-            {/* 底部功能列表 */}
-            <div className="relative z-10 flex flex-col gap-3">
-              {FEATURES.map(({ icon: Icon, text }) => (
-                <div key={text} className="flex items-center gap-3">
-                  <div className="w-7 h-7 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0">
-                    <Icon size={13} className="text-violet-300" />
-                  </div>
-                  <span className="text-slate-400 text-sm">{text}</span>
-                </div>
-              ))}
-            </div>
+            <span className="text-white font-semibold text-lg tracking-wide">印记</span>
           </div>
 
-          {/* ══════════════════════════════════════
-              右侧：纯白表单区
-          ══════════════════════════════════════ */}
-          <div className="flex-1 bg-white flex flex-col justify-center p-12">
+          {/* 中间大标语 */}
+          <div className="relative z-10">
+            <p className="text-white text-4xl font-light leading-relaxed tracking-wide">
+              每一篇日记，<br />
+              <span className="text-violet-300">都是一次</span><br />
+              与内心的相遇。
+            </p>
+            <div className="mt-8 w-12 h-px bg-violet-400/40" />
+            <p className="mt-5 text-slate-400 text-sm leading-relaxed">
+              记录生活，认识自己。<br />让每一天都有迹可循。
+            </p>
+          </div>
 
-            {/* 移动端 Logo（仅小屏显示） */}
+          {/* 底部功能列表 */}
+          <div className="relative z-10 flex flex-col gap-4">
+            {FEATURES.map(({ icon: Icon, text }) => (
+              <div key={text} className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center flex-shrink-0">
+                  <Icon size={14} className="text-violet-300" />
+                </div>
+                <span className="text-slate-400 text-sm">{text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ══════════════════════════════════════
+            右侧：表单区，占 60%，纯白，垂直居中
+        ══════════════════════════════════════ */}
+        <div className="flex-1 bg-white flex items-center justify-center px-8">
+
+          {/* 限宽表单容器，约 380px */}
+          <div className="w-full max-w-sm">
+
+            {/* 移动端 Logo */}
             <div className="flex items-center gap-2.5 mb-10 md:hidden">
               <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-sm font-semibold"
                 style={{ background: 'linear-gradient(135deg,#818cf8,#a78bfa)' }}>印</div>
               <span className="text-lg font-semibold text-slate-800">印记</span>
             </div>
 
-            {/* 标题区 */}
-            <div className="mb-10">
+            {/* 标题 */}
+            <div className="mb-8">
               <h2 className="text-2xl font-semibold text-slate-800 mb-2">
-                {step === 'email' ? '欢迎回来' : '验证你的邮箱'}
+                {step === 'email' ? '欢迎回来 👋' : '验证你的邮箱'}
               </h2>
-              <p className="text-sm text-slate-400 leading-relaxed">
+              <p className="text-sm text-gray-500 leading-relaxed">
                 {step === 'email'
                   ? '输入邮箱，发送验证码即可登录或注册'
-                  : <span>验证码已发送至 <span className="text-slate-600 font-medium">{email}</span></span>}
+                  : <>验证码已发送至 <span className="text-slate-700 font-medium">{email}</span></>}
               </p>
             </div>
 
             {step === 'email' ? (
               /* ── Step 1: Email ── */
-              <div className="flex flex-col gap-5">
+              <div className="flex flex-col gap-4">
                 <Field label="邮箱地址">
                   <div className="relative">
-                    <Mail size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" />
+                    <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
                     <input
                       type="email" value={email}
                       onChange={e => setEmail(e.target.value)}
                       onKeyDown={handleKeyDown}
                       placeholder="your@email.com"
-                      className={inputCls + ' pl-11'}
+                      className={inputCls + ' pl-10'}
                       autoFocus
                     />
                   </div>
@@ -240,55 +243,55 @@ export default function LoginPage() {
                 </Field>
 
                 <button onClick={handleSendCode} disabled={loading}
-                  className="h-14 mt-1 w-full flex items-center justify-center gap-2 rounded-xl text-white text-sm font-semibold tracking-wide shadow-lg shadow-violet-200 hover:shadow-violet-300 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0"
+                  className="h-12 mt-2 w-full flex items-center justify-center gap-2 rounded-xl text-white text-sm font-semibold shadow-md shadow-violet-200 hover:shadow-violet-300 hover:opacity-90 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ background: 'linear-gradient(135deg,#818cf8 0%,#a78bfa 100%)' }}>
                   {loading
-                    ? <><RefreshCw size={15} className="animate-spin" /><span>发送中...</span></>
-                    : <><span>获取验证码</span><ArrowRight size={15} /></>}
+                    ? <><RefreshCw size={14} className="animate-spin" /><span>发送中...</span></>
+                    : <><span>获取验证码</span><ArrowRight size={14} /></>}
                 </button>
               </div>
             ) : (
               /* ── Step 2: Code ── */
-              <div className="flex flex-col gap-5">
-                <Field label="6位验证码">
+              <div className="flex flex-col gap-4">
+                <Field label="6 位验证码">
                   <input
                     type="text" inputMode="numeric" pattern="\d*"
                     maxLength={6} value={code}
                     onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
                     onKeyDown={handleKeyDown}
-                    placeholder="——  ——  ——"
-                    className={inputCls + ' text-center text-2xl font-bold tracking-[0.6em] placeholder:text-lg placeholder:tracking-normal'}
+                    placeholder="· · · · · ·"
+                    className={inputCls + ' text-center text-2xl font-bold tracking-[0.5em] placeholder:text-base placeholder:tracking-widest'}
                     autoFocus
                   />
                 </Field>
 
                 <div className="flex items-center justify-between text-sm">
                   <button onClick={() => { setStep('email'); setCode('') }}
-                    className="text-slate-400 hover:text-slate-600 transition-colors">
+                    className="text-gray-400 hover:text-gray-600 transition-colors">
                     ← 修改邮箱
                   </button>
                   <button onClick={handleResend} disabled={countdown > 0 || loading}
-                    className="text-violet-500 font-medium hover:text-violet-700 disabled:text-slate-300 disabled:cursor-not-allowed transition-colors">
-                    {countdown > 0 ? `${countdown}s 后可重新发送` : '重新发送'}
+                    className="text-violet-500 font-medium hover:text-violet-700 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors">
+                    {countdown > 0 ? `${countdown}s 后重新发送` : '重新发送'}
                   </button>
                 </div>
 
                 <button onClick={handleVerify} disabled={loading || code.length !== 6}
-                  className="h-14 w-full flex items-center justify-center gap-2 rounded-xl text-white text-sm font-semibold tracking-wide shadow-lg shadow-violet-200 hover:shadow-violet-300 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0"
+                  className="h-12 w-full flex items-center justify-center gap-2 rounded-xl text-white text-sm font-semibold shadow-md shadow-violet-200 hover:shadow-violet-300 hover:opacity-90 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ background: 'linear-gradient(135deg,#818cf8 0%,#a78bfa 100%)' }}>
                   {loading
-                    ? <><RefreshCw size={15} className="animate-spin" /><span>验证中...</span></>
+                    ? <><RefreshCw size={14} className="animate-spin" /><span>验证中...</span></>
                     : <span>登录 / 注册</span>}
                 </button>
               </div>
             )}
 
             {/* 协议文字 */}
-            <p className="text-xs text-slate-400 mt-8 text-center leading-6">
+            <p className="text-sm text-gray-400 mt-8 text-center leading-6">
               登录即代表你同意我们的
-              <span className="text-slate-500 cursor-pointer hover:underline mx-0.5">服务条款</span>
+              <span className="text-gray-500 cursor-pointer hover:underline mx-0.5">服务条款</span>
               和
-              <span className="text-slate-500 cursor-pointer hover:underline mx-0.5">隐私政策</span>
+              <span className="text-gray-500 cursor-pointer hover:underline mx-0.5">隐私政策</span>
               <br />首次登录将自动创建账号
             </p>
           </div>
