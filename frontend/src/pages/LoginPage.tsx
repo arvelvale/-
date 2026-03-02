@@ -1,38 +1,50 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Mail, ArrowRight, RefreshCw, Sparkles } from 'lucide-react'
+import { Mail, ArrowRight, RefreshCw, BookOpen, TrendingUp, Feather } from 'lucide-react'
 import api from '../lib/api'
 
-/* ── 装饰性浮动气泡 ────────────────────────────────────── */
-const BUBBLES = [
-  { size: 180, top: '8%',  left: '10%',  delay: '0s',   opacity: 0.18 },
-  { size: 120, top: '55%', left: '5%',   delay: '1.2s', opacity: 0.12 },
-  { size: 240, top: '25%', left: '60%',  delay: '0.6s', opacity: 0.10 },
-  { size: 80,  top: '70%', left: '70%',  delay: '1.8s', opacity: 0.15 },
-  { size: 150, top: '80%', left: '30%',  delay: '0.9s', opacity: 0.08 },
-]
-
-const QUOTES = [
-  '写下今天，\n读懂自己。',
-  '每一篇日记，\n都是一次与内心的相遇。',
-  '记录的力量，\n在于让模糊变清晰。',
-  '印记，\n是你给自己最好的礼物。',
-]
-
 /* ── Toast ─────────────────────────────────────────────── */
-function Toast({ msg, type = 'info' }: { msg: string; type?: 'info' | 'error' | 'success' }) {
+type ToastType = 'info' | 'error' | 'success'
+function Toast({ msg, type = 'info' }: { msg: string; type?: ToastType }) {
   if (!msg) return null
-  const bg =
-    type === 'error'   ? 'linear-gradient(135deg,#EF5350,#FF7043)' :
-    type === 'success' ? 'linear-gradient(135deg,#4CAF50,#66BB6A)'  :
-                         'linear-gradient(135deg,#7C8FD4,#C4B5FD)'
+  const colors: Record<ToastType, string> = {
+    error:   'bg-rose-500',
+    success: 'bg-emerald-500',
+    info:    'bg-slate-700',
+  }
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-2.5 rounded-2xl text-sm font-medium text-white shadow-lg pointer-events-none"
-      style={{ background: bg }}>
+    <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-2xl text-sm font-medium text-white shadow-xl pointer-events-none ${colors[type]}`}>
       {msg}
     </div>
   )
 }
+
+/* ── Input 组件 ─────────────────────────────────────────── */
+function Field({
+  label, hint, children,
+}: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <label className="text-sm font-medium text-slate-700">
+        {label}
+        {hint && <span className="ml-1.5 text-slate-400 font-normal text-xs">{hint}</span>}
+      </label>
+      {children}
+    </div>
+  )
+}
+
+const inputCls =
+  'w-full h-14 px-4 rounded-xl bg-slate-50 hover:bg-slate-100 focus:bg-white ' +
+  'focus:outline-none focus:ring-2 focus:ring-violet-300 ' +
+  'text-slate-800 placeholder-slate-300 transition-all duration-200 text-sm'
+
+/* ── Features ───────────────────────────────────────────── */
+const FEATURES = [
+  { icon: BookOpen,   text: 'AI 心理分析，深度认识自我' },
+  { icon: TrendingUp, text: '情绪趋势追踪，感知内心变化' },
+  { icon: Feather,    text: '一键生成朋友圈文案' },
+]
 
 /* ── Main ───────────────────────────────────────────────── */
 export default function LoginPage() {
@@ -43,16 +55,14 @@ export default function LoginPage() {
   const [step, setStep]           = useState<'email' | 'code'>('email')
   const [countdown, setCountdown] = useState(0)
   const [loading, setLoading]     = useState(false)
-  const [toast, setToast]         = useState({ msg: '', type: 'info' as 'info' | 'error' | 'success' })
-  const [quoteIdx]                = useState(() => Math.floor(Math.random() * QUOTES.length))
+  const [toast, setToast]         = useState({ msg: '', type: 'info' as ToastType })
   const timerRef                  = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Already logged in → redirect
   useEffect(() => {
     if (localStorage.getItem('token')) navigate('/diary', { replace: true })
   }, [navigate])
 
-  const tip = (msg: string, type: 'info' | 'error' | 'success' = 'info') => {
+  const tip = (msg: string, type: ToastType = 'info') => {
     setToast({ msg, type })
     setTimeout(() => setToast({ msg: '', type: 'info' }), 3000)
   }
@@ -103,8 +113,7 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const res = await api.post('/auth/email-login', {
-        email,
-        code,
+        email, code,
         username: username || email.split('@')[0],
       })
       const data = res.data?.data
@@ -113,8 +122,7 @@ export default function LoginPage() {
       tip('登录成功 🎉', 'success')
       setTimeout(() => navigate('/diary', { replace: true }), 800)
     } catch (err: any) {
-      const detail = err.response?.data?.detail
-      tip(detail ?? '验证码错误或已过期', 'error')
+      tip(err.response?.data?.detail ?? '验证码错误或已过期', 'error')
     } finally {
       setLoading(false)
     }
@@ -122,184 +130,170 @@ export default function LoginPage() {
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key !== 'Enter') return
-    if (step === 'email') handleSendCode()
-    else handleVerify()
+    step === 'email' ? handleSendCode() : handleVerify()
   }
 
   return (
     <>
       <Toast msg={toast.msg} type={toast.type} />
 
-      <div className="min-h-full flex items-center justify-center p-6">
+      {/* 全屏背景容器 */}
+      <div className="min-h-full flex items-center justify-center p-8"
+        style={{ background: 'linear-gradient(135deg,#f8f7ff 0%,#f0eeff 40%,#eef4ff 100%)' }}>
 
-        {/* Card: left bg + right form */}
-        <div className="w-full max-w-4xl flex rounded-3xl overflow-hidden" style={{ minHeight: 560, boxShadow: '0 24px 80px rgba(100,120,200,0.22)' }}>
+        {/* 卡片主体：左右分栏，撑满可用宽度 */}
+        <div className="w-full max-w-5xl flex rounded-3xl overflow-hidden shadow-2xl"
+          style={{ minHeight: 620 }}>
 
-          {/* ── Left: Background Panel ── */}
-          <div className="hidden md:flex w-5/12 flex-col justify-between p-12 relative overflow-hidden flex-shrink-0"
-            style={{ background: 'linear-gradient(145deg,#7C8FD4 0%,#A78BFA 60%,#C4B5FD 100%)' }}>
+          {/* ══════════════════════════════════════
+              左侧：深色品牌区 bg-slate-900
+          ══════════════════════════════════════ */}
+          <div className="hidden md:flex w-5/12 flex-col justify-between p-12 bg-slate-900 relative overflow-hidden flex-shrink-0">
 
-            {/* Decorative bubbles */}
-            {BUBBLES.map((b, i) => (
-              <div key={i} className="absolute rounded-full"
-                style={{
-                  width: b.size, height: b.size,
-                  top: b.top, left: b.left,
-                  background: 'rgba(255,255,255,0.15)',
-                  backdropFilter: 'blur(2px)',
-                  opacity: b.opacity,
-                  animation: `float 6s ease-in-out ${b.delay} infinite alternate`,
-                }} />
-            ))}
+            {/* 顶部光晕装饰 */}
+            <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full opacity-20"
+              style={{ background: 'radial-gradient(circle,#a78bfa,transparent 70%)' }} />
+            <div className="absolute bottom-0 -left-12 w-56 h-56 rounded-full opacity-10"
+              style={{ background: 'radial-gradient(circle,#818cf8,transparent 70%)' }} />
 
-            {/* Logo */}
+            {/* Logo 区 */}
             <div className="relative z-10">
-              <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-white text-xl font-bold mb-4">
+              <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-white text-lg font-semibold mb-5"
+                style={{ background: 'linear-gradient(135deg,#818cf8,#a78bfa)' }}>
                 印
               </div>
-              <h1 className="text-white text-2xl font-bold">印记</h1>
-              <p className="text-white/70 text-sm mt-1">记录生活，认识自己</p>
+              <p className="text-slate-400 text-sm tracking-wider uppercase">印记 · Yinji</p>
             </div>
 
-            {/* Quote */}
+            {/* 中间大标语 */}
             <div className="relative z-10">
-              <p className="text-white text-lg font-medium leading-relaxed whitespace-pre-line">
-                {QUOTES[quoteIdx]}
+              <p className="text-white text-3xl font-light leading-relaxed tracking-wide">
+                每一篇日记，<br />
+                <span className="text-violet-300">都是一次</span><br />
+                与内心的相遇。
               </p>
-              <div className="flex gap-1 mt-4">
-                {QUOTES.map((_, i) => (
-                  <div key={i} className="h-1 rounded-full transition-all"
-                    style={{
-                      width: i === quoteIdx ? 20 : 6,
-                      background: i === quoteIdx ? 'white' : 'rgba(255,255,255,0.4)',
-                    }} />
-                ))}
-              </div>
+              <div className="mt-6 w-10 h-px bg-violet-400/50" />
             </div>
 
-            {/* Bottom features */}
-            <div className="relative z-10 flex flex-col gap-2">
-              {['AI 心理分析，深度认识自我', '情绪趋势追踪，感知内心变化', '一键生成朋友圈文案'].map(f => (
-                <div key={f} className="flex items-center gap-2">
-                  <Sparkles size={12} className="text-white/70 flex-shrink-0" />
-                  <span className="text-white/80 text-xs">{f}</span>
+            {/* 底部功能列表 */}
+            <div className="relative z-10 flex flex-col gap-3">
+              {FEATURES.map(({ icon: Icon, text }) => (
+                <div key={text} className="flex items-center gap-3">
+                  <div className="w-7 h-7 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0">
+                    <Icon size={13} className="text-violet-300" />
+                  </div>
+                  <span className="text-slate-400 text-sm">{text}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* ── Right: Form Panel ── */}
-          <div className="flex-1 bg-white flex flex-col justify-center px-12 py-10">
+          {/* ══════════════════════════════════════
+              右侧：纯白表单区
+          ══════════════════════════════════════ */}
+          <div className="flex-1 bg-white flex flex-col justify-center p-12">
 
-            {/* Mobile logo */}
-            <div className="flex items-center gap-2 mb-8 md:hidden">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold"
-                style={{ background: 'linear-gradient(135deg,#7C8FD4,#C4B5FD)' }}>印</div>
-              <span className="text-lg font-bold text-[#2D3250]">印记</span>
+            {/* 移动端 Logo（仅小屏显示） */}
+            <div className="flex items-center gap-2.5 mb-10 md:hidden">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-sm font-semibold"
+                style={{ background: 'linear-gradient(135deg,#818cf8,#a78bfa)' }}>印</div>
+              <span className="text-lg font-semibold text-slate-800">印记</span>
             </div>
 
-            <h2 className="text-2xl font-bold text-[#2D3250] mb-1">
-              {step === 'email' ? '欢迎回来 👋' : '验证邮箱 📬'}
-            </h2>
-            <p className="text-sm text-[#8A94B8] mb-8">
-              {step === 'email'
-                ? '输入邮箱，发送验证码即可登录或注册'
-                : `验证码已发送至 ${email}`}
-            </p>
+            {/* 标题区 */}
+            <div className="mb-10">
+              <h2 className="text-2xl font-semibold text-slate-800 mb-2">
+                {step === 'email' ? '欢迎回来' : '验证你的邮箱'}
+              </h2>
+              <p className="text-sm text-slate-400 leading-relaxed">
+                {step === 'email'
+                  ? '输入邮箱，发送验证码即可登录或注册'
+                  : <span>验证码已发送至 <span className="text-slate-600 font-medium">{email}</span></span>}
+              </p>
+            </div>
 
             {step === 'email' ? (
               /* ── Step 1: Email ── */
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-[#2D3250] mb-1.5">邮箱地址</label>
+              <div className="flex flex-col gap-5">
+                <Field label="邮箱地址">
                   <div className="relative">
-                    <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#C4C9E8]" />
+                    <Mail size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" />
                     <input
                       type="email" value={email}
                       onChange={e => setEmail(e.target.value)}
                       onKeyDown={handleKeyDown}
-                      placeholder="请输入你的邮箱"
-                      className="w-full pl-10 pr-4 py-3 rounded-xl border border-[#E0E7FF] bg-[#FAFBFF] text-[#2D3250] placeholder-[#C4C9E8] focus:outline-none focus:border-[#7C8FD4] focus:ring-2 focus:ring-[#7C8FD4]/15 transition-all text-sm"
+                      placeholder="your@email.com"
+                      className={inputCls + ' pl-11'}
                       autoFocus
                     />
                   </div>
-                </div>
+                </Field>
 
-                <div>
-                  <label className="block text-sm font-medium text-[#2D3250] mb-1.5">
-                    昵称 <span className="text-[#C4C9E8] font-normal">（可选，注册时使用）</span>
-                  </label>
+                <Field label="昵称" hint="（可选，注册时使用）">
                   <input
                     type="text" value={username}
                     onChange={e => setUsername(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder="如不填写将使用邮箱前缀"
-                    className="w-full px-4 py-3 rounded-xl border border-[#E0E7FF] bg-[#FAFBFF] text-[#2D3250] placeholder-[#C4C9E8] focus:outline-none focus:border-[#7C8FD4] focus:ring-2 focus:ring-[#7C8FD4]/15 transition-all text-sm"
+                    className={inputCls}
                   />
-                </div>
+                </Field>
 
                 <button onClick={handleSendCode} disabled={loading}
-                  className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-white font-medium shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed mt-2"
-                  style={{ background: 'linear-gradient(135deg,#7C8FD4,#C4B5FD)' }}>
+                  className="h-14 mt-1 w-full flex items-center justify-center gap-2 rounded-xl text-white text-sm font-semibold tracking-wide shadow-lg shadow-violet-200 hover:shadow-violet-300 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0"
+                  style={{ background: 'linear-gradient(135deg,#818cf8 0%,#a78bfa 100%)' }}>
                   {loading
-                    ? <><RefreshCw size={15} className="animate-spin" />发送中...</>
-                    : <><ArrowRight size={15} />获取验证码</>}
+                    ? <><RefreshCw size={15} className="animate-spin" /><span>发送中...</span></>
+                    : <><span>获取验证码</span><ArrowRight size={15} /></>}
                 </button>
               </div>
             ) : (
-              /* ── Step 2: Verification Code ── */
-              <div className="space-y-4">
-                {/* 6-digit code input */}
-                <div>
-                  <label className="block text-sm font-medium text-[#2D3250] mb-1.5">6位验证码</label>
+              /* ── Step 2: Code ── */
+              <div className="flex flex-col gap-5">
+                <Field label="6位验证码">
                   <input
                     type="text" inputMode="numeric" pattern="\d*"
                     maxLength={6} value={code}
                     onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
                     onKeyDown={handleKeyDown}
-                    placeholder="请输入验证码"
-                    className="w-full px-4 py-3.5 rounded-xl border border-[#E0E7FF] bg-[#FAFBFF] text-[#2D3250] placeholder-[#C4C9E8] focus:outline-none focus:border-[#7C8FD4] focus:ring-2 focus:ring-[#7C8FD4]/15 transition-all text-xl text-center tracking-[0.5em] font-bold"
+                    placeholder="——  ——  ——"
+                    className={inputCls + ' text-center text-2xl font-bold tracking-[0.6em] placeholder:text-lg placeholder:tracking-normal'}
                     autoFocus
                   />
-                </div>
+                </Field>
 
-                {/* Resend */}
                 <div className="flex items-center justify-between text-sm">
                   <button onClick={() => { setStep('email'); setCode('') }}
-                    className="text-[#8A94B8] hover:text-[#7C8FD4] transition-colors">
+                    className="text-slate-400 hover:text-slate-600 transition-colors">
                     ← 修改邮箱
                   </button>
                   <button onClick={handleResend} disabled={countdown > 0 || loading}
-                    className="text-[#7C8FD4] font-medium disabled:text-[#C4C9E8] disabled:cursor-not-allowed transition-colors">
-                    {countdown > 0 ? `${countdown}s 后重新发送` : '重新发送'}
+                    className="text-violet-500 font-medium hover:text-violet-700 disabled:text-slate-300 disabled:cursor-not-allowed transition-colors">
+                    {countdown > 0 ? `${countdown}s 后可重新发送` : '重新发送'}
                   </button>
                 </div>
 
                 <button onClick={handleVerify} disabled={loading || code.length !== 6}
-                  className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-white font-medium shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-                  style={{ background: 'linear-gradient(135deg,#7C8FD4,#C4B5FD)' }}>
+                  className="h-14 w-full flex items-center justify-center gap-2 rounded-xl text-white text-sm font-semibold tracking-wide shadow-lg shadow-violet-200 hover:shadow-violet-300 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0"
+                  style={{ background: 'linear-gradient(135deg,#818cf8 0%,#a78bfa 100%)' }}>
                   {loading
-                    ? <><RefreshCw size={15} className="animate-spin" />验证中...</>
-                    : <><Sparkles size={15} />登录 / 注册</>}
+                    ? <><RefreshCw size={15} className="animate-spin" /><span>验证中...</span></>
+                    : <span>登录 / 注册</span>}
                 </button>
               </div>
             )}
 
-            <p className="text-xs text-[#C4C9E8] mt-6 text-center leading-relaxed">
-              登录即代表你同意我们的服务条款和隐私政策<br />
-              首次登录将自动创建账号
+            {/* 协议文字 */}
+            <p className="text-xs text-slate-400 mt-8 text-center leading-6">
+              登录即代表你同意我们的
+              <span className="text-slate-500 cursor-pointer hover:underline mx-0.5">服务条款</span>
+              和
+              <span className="text-slate-500 cursor-pointer hover:underline mx-0.5">隐私政策</span>
+              <br />首次登录将自动创建账号
             </p>
           </div>
         </div>
       </div>
-
-      {/* Float animation */}
-      <style>{`
-        @keyframes float {
-          from { transform: translateY(0px) scale(1); }
-          to   { transform: translateY(-20px) scale(1.05); }
-        }
-      `}</style>
     </>
   )
 }
