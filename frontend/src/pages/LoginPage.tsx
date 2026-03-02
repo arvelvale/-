@@ -143,7 +143,7 @@ export default function LoginPage() {
         {/* ══════════════════════════════════════
             左侧：品牌区，占 40%，深色暗夜
         ══════════════════════════════════════ */}
-        <div className="hidden md:flex w-[40%] h-full flex-col justify-between p-16 relative overflow-hidden flex-shrink-0 bg-slate-900">
+        <div className="hidden md:flex w-[40%] h-full flex-col justify-between p-12 lg:p-16 relative overflow-hidden flex-shrink-0 bg-slate-900">
 
           {/* 光晕装饰 */}
           <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full opacity-20"
@@ -164,13 +164,13 @@ export default function LoginPage() {
 
           {/* 中间大标语 */}
           <div className="relative z-10">
-            <p className="text-white text-4xl font-light leading-relaxed tracking-wide">
+            <p className="text-white text-4xl font-medium leading-loose tracking-wide">
               每一篇日记，<br />
               <span className="text-violet-300">都是一次</span><br />
               与内心的相遇。
             </p>
             <div className="mt-8 w-12 h-px bg-violet-400/40" />
-            <p className="mt-5 text-slate-400 text-sm leading-relaxed">
+            <p className="mt-5 text-gray-500 text-sm leading-relaxed">
               记录生活，认识自己。<br />让每一天都有迹可循。
             </p>
           </div>
@@ -226,7 +226,7 @@ export default function LoginPage() {
                       onChange={e => setEmail(e.target.value)}
                       onKeyDown={handleKeyDown}
                       placeholder="your@email.com"
-                      className={inputCls + ' pl-10'}
+                      className={inputCls + ' pl-11'}
                       autoFocus
                     />
                   </div>
