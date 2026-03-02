@@ -220,13 +220,13 @@ export default function LoginPage() {
               <div className="flex flex-col gap-4">
                 <Field label="邮箱地址">
                   <div className="relative">
-                    <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
+                    <Mail size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
                     <input
                       type="email" value={email}
                       onChange={e => setEmail(e.target.value)}
                       onKeyDown={handleKeyDown}
                       placeholder="your@email.com"
-                      className={inputCls + ' pl-11'}
+                      className={inputCls + ' pl-12'}
                       autoFocus
                     />
                   </div>
