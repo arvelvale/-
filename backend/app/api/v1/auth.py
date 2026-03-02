@@ -111,6 +111,11 @@ async def email_code_login(req: EmailCodeLoginRequest, db: AsyncSession = Depend
         )
         return success_response(data)
     except Exception as e:
+        import traceback
+        import logging
+        logging.getLogger(__name__).error(
+            f"Email login failed: {type(e).__name__}: {e}\n{traceback.format_exc()}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)

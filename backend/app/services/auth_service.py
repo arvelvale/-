@@ -48,8 +48,7 @@ class AuthService:
         # 创建空画像
         profile = UserProfile(user_id=user.id)
         self.db.add(profile)
-
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(user)
 
         # 生成Token
@@ -80,7 +79,6 @@ class AuthService:
 
         # 更新最后登录时间
         user.last_login_at = datetime.now(timezone.utc)
-        await self.db.commit()
 
         # 生成Token
         access_token, expires_at = create_access_token(user.id, user.username)
@@ -123,14 +121,13 @@ class AuthService:
             await self.db.flush()
             profile = UserProfile(user_id=user.id)
             self.db.add(profile)
-            await self.db.commit()
+            await self.db.flush()
             await self.db.refresh(user)
             logger.info(f"验证码自动注册: id={user.id}, email={email}")
         else:
             if not user.is_active:
                 raise ValueError("账号已被禁用")
             user.last_login_at = datetime.now(timezone.utc)
-            await self.db.commit()
             logger.info(f"验证码登录: id={user.id}, email={email}")
 
         access_token, expires_at = create_access_token(user.id, user.username)

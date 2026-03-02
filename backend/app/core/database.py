@@ -58,11 +58,12 @@ async def close_db():
 
 async def get_db() -> AsyncSession:
     """获取数据库Session（依赖注入）
-    注意: 事务由Service层自行管理（commit/rollback）
+    事务管理：正常退出自动提交，异常自动回滚
     """
     async with async_session_factory() as session:
         try:
             yield session
+            await session.commit()
         except Exception:
             await session.rollback()
             raise

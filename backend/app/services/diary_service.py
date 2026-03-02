@@ -40,7 +40,7 @@ class DiaryService:
             images=images,
         )
         self.db.add(diary)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(diary)
 
         logger.info(f"日记创建: diary_id={diary.id}, user_id={user_id}")
@@ -147,7 +147,7 @@ class DiaryService:
         if "content" in kwargs and kwargs["content"]:
             diary.word_count = len(kwargs["content"])
 
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(diary)
 
         logger.info(f"日记更新: diary_id={diary_id}, user_id={user_id}")
@@ -165,7 +165,7 @@ class DiaryService:
             return False
 
         await self.db.delete(diary)
-        await self.db.commit()
+        await self.db.flush()
 
         logger.info(f"日记删除: diary_id={diary_id}, user_id={user_id}")
         return True
