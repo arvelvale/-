@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import ReactMarkdown from 'react-markdown'
@@ -94,7 +94,24 @@ export default function DiaryPage() {
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
   const [previewMode, setPreviewMode] = useState(false)
+  const [images, setImages] = useState<string[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const isLoggedIn = !!localStorage.getItem('token')
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files) return
+    Array.from(files).forEach(file => {
+      const reader = new FileReader()
+      reader.onload = (ev) => {
+        const dataUrl = ev.target?.result as string
+        setImages(prev => [...prev, dataUrl])
+        tip('图片已添加 📷')
+      }
+      reader.readAsDataURL(file)
+    })
+    e.target.value = ''
+  }
 
   /* load diaries from API */
   const loadDiaries = async () => {
@@ -294,13 +311,37 @@ export default function DiaryPage() {
           {/* Image Upload */}
           <div className="glass-card px-5 py-3">
             <p className="text-sm font-medium text-[#2D3250] mb-2">图片上传</p>
-            <div className="border-2 border-dashed border-[#C4C9E8] rounded-xl py-4 flex flex-col items-center gap-1.5 cursor-pointer hover:border-[#7C8FD4] hover:bg-[#7C8FD4]/5 transition-all">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleImageUpload}
+              accept="image/*"
+              multiple
+              className="hidden"
+            />
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              className="border-2 border-dashed border-[#C4C9E8] rounded-xl py-4 flex flex-col items-center gap-1.5 cursor-pointer hover:border-[#7C8FD4] hover:bg-[#7C8FD4]/5 transition-all">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
                 <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"
                   stroke="#8A94B8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
               <span className="text-sm text-[#8A94B8]">点击或拖拽上传图片</span>
             </div>
+            {images.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-3">
+                {images.map((img, i) => (
+                  <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-[#E8EEFF]">
+                    <img src={img} alt="" className="w-full h-full object-cover" />
+                    <button
+                      onClick={() => setImages(prev => prev.filter((_, idx) => idx !== i))}
+                      className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-600">
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Action Row */}
