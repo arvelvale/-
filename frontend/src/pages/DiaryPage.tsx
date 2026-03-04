@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
+import ReactMarkdown from 'react-markdown'
 import {
   Bold, Italic, Heading1, Heading2, List, ListOrdered,
-  Quote, Code2, Link, Image, Plus, Brain, Save,
+  Quote, Code2, Link, Image, Plus, Brain, Save, Eye, Edit3,
 } from 'lucide-react'
 import { diaryApi } from '../lib/api'
 
@@ -92,6 +93,7 @@ export default function DiaryPage() {
   const [importance, setImportance] = useState(7)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
+  const [previewMode, setPreviewMode] = useState(false)
   const isLoggedIn = !!localStorage.getItem('token')
 
   /* load diaries from API */
@@ -99,12 +101,12 @@ export default function DiaryPage() {
     if (!isLoggedIn) return
     try {
       const res = await diaryApi.list({ pageSize: 50 })
-      const items: any[] = res.data?.data?.items ?? res.data?.items ?? []
+      const items: any[] = res.data?.data?.diaries ?? res.data?.diaries ?? []
       const mapped: Diary[] = items.map(d => ({
         id: d.diaryId ?? d.id,
-        date: dayjs(d.diaryDate ?? d.createdAt).format('MM-DD'),
-        title: d.title || (d.content?.slice(0, 12) + '…'),
-        content: d.content ?? '',
+        date: dayjs(d.diaryDate).format('MM-DD'),
+        title: d.title || d.contentPreview?.slice(0, 12) + '…',
+        content: d.contentPreview ?? '',
         emotion: d.emotionTags?.[0] ?? 'calm',
         importanceScore: d.importanceScore,
       }))
@@ -240,11 +242,23 @@ export default function DiaryPage() {
                   {sepAfter.has(idx) && <span className="w-px h-5 bg-[#E0E7FF] mx-1" />}
                 </span>
               ))}
+              <span className="flex-1" />
+              <button onClick={() => setPreviewMode(!previewMode)} title={previewMode ? '编辑' : '预览'}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors ${
+                  previewMode ? 'bg-[#7C8FD4] text-white' : 'text-[#5B6FBE] hover:bg-[#7C8FD4]/10'}`}>
+                {previewMode ? <><Edit3 size={13} />编辑</> : <><Eye size={13} />预览</>}
+              </button>
             </div>
-            {/* Textarea */}
-            <textarea value={content} onChange={e => setContent(e.target.value)}
-              placeholder="在这里记录你的想法..."
-              className="flex-1 w-full p-4 resize-none focus:outline-none text-[#2D3250] placeholder-[#C4C9E8] text-sm leading-relaxed bg-transparent min-h-[200px]" />
+            {/* Editor / Preview */}
+            {previewMode ? (
+              <div className="flex-1 w-full p-4 overflow-y-auto prose prose-sm prose-slate max-w-none min-h-[200px]">
+                <ReactMarkdown>{content || '*暂无内容*'}</ReactMarkdown>
+              </div>
+            ) : (
+              <textarea value={content} onChange={e => setContent(e.target.value)}
+                placeholder="支持 Markdown 语法：## 标题、- 列表、**粗体** 等..."
+                className="flex-1 w-full p-4 resize-none focus:outline-none text-[#2D3250] placeholder-[#C4C9E8] text-sm leading-relaxed bg-transparent min-h-[200px] font-mono" />
+            )}
           </div>
 
           {/* Emotion Tags */}
