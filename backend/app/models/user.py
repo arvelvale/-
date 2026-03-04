@@ -8,15 +8,16 @@ from sqlalchemy import Boolean, DateTime, String, BigInteger, ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.core.types import get_json_type
+from app.core.types import get_json_type, get_pk_type
 
 CompatJSON = get_json_type()
+PKType = get_pk_type()
 
 
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(PKType, primary_key=True, autoincrement=True)
     username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
     email: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -45,8 +46,8 @@ class User(Base):
 class UserProfile(Base):
     __tablename__ = "user_profiles"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    id: Mapped[int] = mapped_column(PKType, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(PKType, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
 
     identity_tag: Mapped[str | None] = mapped_column(String(50), nullable=True, comment="身份标签: 创业者/职场精英/文艺青年等")
     current_state: Mapped[str | None] = mapped_column(String(50), nullable=True, comment="当前状态: 迷茫/压力大/记录美好等")

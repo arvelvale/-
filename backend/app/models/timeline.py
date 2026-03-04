@@ -8,17 +8,18 @@ from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, SmallInteger, Str
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.core.types import get_json_type
+from app.core.types import get_json_type, get_pk_type
 
 CompatJSON = get_json_type()
+PKType = get_pk_type()
 
 
 class TimelineEvent(Base):
     __tablename__ = "timeline_events"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    diary_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("diaries.id", ondelete="SET NULL"), nullable=True)
+    id: Mapped[int] = mapped_column(PKType, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(PKType, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    diary_id: Mapped[int | None] = mapped_column(PKType, ForeignKey("diaries.id", ondelete="SET NULL"), nullable=True)
 
     event_date: Mapped[date] = mapped_column(Date, nullable=False)
     event_summary: Mapped[str] = mapped_column(String(500), nullable=False)

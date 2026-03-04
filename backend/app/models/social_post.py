@@ -8,17 +8,18 @@ from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.core.types import get_json_type
+from app.core.types import get_json_type, get_pk_type
 
 CompatJSON = get_json_type()
+PKType = get_pk_type()
 
 
 class SocialPost(Base):
     __tablename__ = "social_posts"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    diary_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("diaries.id", ondelete="SET NULL"), nullable=True)
+    id: Mapped[int] = mapped_column(PKType, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(PKType, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    diary_id: Mapped[int | None] = mapped_column(PKType, ForeignKey("diaries.id", ondelete="SET NULL"), nullable=True)
 
     generated_content: Mapped[str] = mapped_column(Text, nullable=False)
     final_content: Mapped[str | None] = mapped_column(Text, nullable=True, comment="用户修改后的内容")

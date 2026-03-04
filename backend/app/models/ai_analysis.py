@@ -8,17 +8,18 @@ from sqlalchemy import BigInteger, DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.core.types import get_json_type
+from app.core.types import get_json_type, get_pk_type
 
 CompatJSON = get_json_type()
+PKType = get_pk_type()
 
 
 class AIAnalysis(Base):
     __tablename__ = "ai_analyses"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    diary_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("diaries.id", ondelete="CASCADE"), nullable=False)
+    id: Mapped[int] = mapped_column(PKType, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(PKType, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    diary_id: Mapped[int] = mapped_column(PKType, ForeignKey("diaries.id", ondelete="CASCADE"), nullable=False)
 
     analysis_type: Mapped[str | None] = mapped_column(String(50), nullable=True, comment="satir/emotion/summary")
 
