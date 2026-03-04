@@ -21,14 +21,6 @@ interface Diary {
   content?: string; emotion: string; importanceScore?: number
 }
 
-const MOCK: Diary[] = [
-  { id: 1, date: '05-15', title: '今天的天气真好...', content: '', emotion: 'happy' },
-  { id: 2, date: '05-14', title: '关于工作的一些思考...', content: '', emotion: 'anxious' },
-  { id: 3, date: '05-13', title: '关于工作的一些思考...', content: '', emotion: 'calm' },
-  { id: 4, date: '05-12', title: '今天的天气真好，有...', content: '', emotion: 'happy' },
-  { id: 5, date: '05-11', title: '今天的天气真好，在...', content: '', emotion: 'calm' },
-  { id: 6, date: '05-10', title: '关于工作的一些思考', content: '', emotion: 'sad' },
-]
 
 /* ── Mini Calendar ─────────────────────────────────────── */
 function MiniCalendar({ selected, onSelect }: { selected: dayjs.Dayjs; onSelect: (d: dayjs.Dayjs) => void }) {
@@ -91,9 +83,9 @@ function Toast({ msg }: { msg: string }) {
 /* ── Main Page ──────────────────────────────────────────── */
 export default function DiaryPage() {
   const navigate = useNavigate()
-  const [diaries, setDiaries] = useState<Diary[]>(MOCK)
+  const [diaries, setDiaries] = useState<Diary[]>([])
   const [selDate, setSelDate] = useState(dayjs())
-  const [selId, setSelId] = useState<number>(1)
+  const [selId, setSelId] = useState<number>(-1)
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [emotion, setEmotion] = useState('calm')
@@ -102,12 +94,12 @@ export default function DiaryPage() {
   const [toast, setToast] = useState('')
   const isLoggedIn = !!localStorage.getItem('token')
 
-  /* load list from API */
-  useEffect(() => {
+  /* load diaries from API */
+  const loadDiaries = async () => {
     if (!isLoggedIn) return
-    diaryApi.list({ pageSize: 20 }).then(res => {
-      const items: any[] = res.data?.data?.items ?? []
-      if (!items.length) return
+    try {
+      const res = await diaryApi.list({ pageSize: 50 })
+      const items: any[] = res.data?.data?.items ?? res.data?.items ?? []
       const mapped: Diary[] = items.map(d => ({
         id: d.diaryId ?? d.id,
         date: dayjs(d.diaryDate ?? d.createdAt).format('MM-DD'),
@@ -117,8 +109,16 @@ export default function DiaryPage() {
         importanceScore: d.importanceScore,
       }))
       setDiaries(mapped)
-      setSelId(mapped[0].id)
-    }).catch(() => {})
+      if (mapped.length > 0 && selId === -1) {
+        setSelId(mapped[0].id)
+      }
+    } catch (e) {
+      console.error('Failed to load diaries:', e)
+    }
+  }
+
+  useEffect(() => {
+    loadDiaries()
   }, [isLoggedIn])
 
   /* populate editor when switching diary */
@@ -135,21 +135,38 @@ export default function DiaryPage() {
 
   const handleSave = async () => {
     if (!content.trim()) { tip('请先写点内容 📝'); return }
+    if (!isLoggedIn) { tip('请先登录后再保存'); return }
     setSaving(true)
     try {
-      if (isLoggedIn) {
-        await diaryApi.create({
-          title, content,
+      const isNewDiary = selId <= 0
+      if (isNewDiary) {
+        const res = await diaryApi.create({
+          title: title || selDate.format('M月D日的日记'),
+          content,
           diaryDate: selDate.format('YYYY-MM-DD'),
           emotionTags: [emotion],
           importanceScore: importance,
         })
+        const newId = res.data?.data?.diaryId ?? res.data?.diaryId
         tip('保存成功 ✅')
+        await loadDiaries()
+        if (newId) setSelId(newId)
       } else {
-        tip('演示模式 — 登录后可同步至云端')
+        await diaryApi.update(selId, {
+          title: title || undefined,
+          content,
+          emotionTags: [emotion],
+          importanceScore: importance,
+        })
+        tip('更新成功 ✅')
+        await loadDiaries()
       }
-    } catch { tip('保存失败，请重试') }
-    finally { setSaving(false) }
+    } catch (e) {
+      console.error('Save failed:', e)
+      tip('保存失败，请重试')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleNew = () => {
