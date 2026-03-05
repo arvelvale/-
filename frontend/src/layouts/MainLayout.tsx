@@ -1,5 +1,6 @@
-import { Outlet, NavLink } from 'react-router-dom'
-import { BookOpen, BarChart2, Brain, FileText, User } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { BookOpen, BarChart2, Brain, FileText, User, Settings, LogOut, ChevronDown } from 'lucide-react'
 
 const navItems = [
   { to: '/diary', icon: BookOpen, label: '日记' },
@@ -10,6 +11,36 @@ const navItems = [
 ]
 
 export default function MainLayout() {
+  const navigate = useNavigate()
+  const [showDropdown, setShowDropdown] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // 获取用户信息
+  const userEmail = localStorage.getItem('userEmail') || '用户'
+  const userName = userEmail.split('@')[0] || '用户'
+  const userInitial = userName.charAt(0).toUpperCase()
+
+  // 点击外部关闭下拉菜单
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const handleLogout = () => {
+    localStorage.removeItem('token')
+    localStorage.removeItem('refreshToken')
+    localStorage.removeItem('userEmail')
+    localStorage.removeItem('currentDiaryId')
+    localStorage.removeItem('currentDiaryContent')
+    setShowDropdown(false)
+    navigate('/login')
+  }
+
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       {/* Top Nav */}
@@ -41,14 +72,64 @@ export default function MainLayout() {
           ))}
         </nav>
 
-        <button className="flex items-center gap-2 px-3 py-1.5 rounded-xl hover:bg-[#7C8FD4]/10 transition-all">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#A5B4FC] to-[#C4B5FD] flex items-center justify-center text-white text-xs font-bold">
-            U
-          </div>
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <path d="M2 4l4 4 4-4" stroke="#8A94B8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
+        {/* User Dropdown */}
+        <div className="relative" ref={dropdownRef}>
+          <button
+            onClick={() => setShowDropdown(!showDropdown)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl hover:bg-[#7C8FD4]/10 transition-all"
+          >
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#A5B4FC] to-[#C4B5FD] flex items-center justify-center text-white text-xs font-bold">
+              {userInitial}
+            </div>
+            <ChevronDown size={14} className={`text-[#8A94B8] transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
+          </button>
+
+          {showDropdown && (
+            <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-lg border border-[#E8EEFF] py-2 z-50">
+              {/* User Info */}
+              <div className="px-4 py-3 border-b border-[#E8EEFF]">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#A5B4FC] to-[#C4B5FD] flex items-center justify-center text-white text-sm font-bold">
+                    {userInitial}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-[#2D3250] truncate">{userName}</p>
+                    <p className="text-xs text-[#8A94B8] truncate">{userEmail}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Menu Items */}
+              <div className="py-1">
+                <button
+                  onClick={() => { setShowDropdown(false); navigate('/profile') }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#2D3250] hover:bg-[#7C8FD4]/10 transition-colors"
+                >
+                  <User size={16} className="text-[#8A94B8]" />
+                  个人中心
+                </button>
+                <button
+                  onClick={() => { setShowDropdown(false); navigate('/profile') }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#2D3250] hover:bg-[#7C8FD4]/10 transition-colors"
+                >
+                  <Settings size={16} className="text-[#8A94B8]" />
+                  账号设置
+                </button>
+              </div>
+
+              {/* Logout */}
+              <div className="border-t border-[#E8EEFF] pt-1">
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors"
+                >
+                  <LogOut size={16} />
+                  退出登录
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </header>
 
       {/* Page Content */}

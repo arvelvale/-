@@ -119,6 +119,7 @@ export default function LoginPage() {
       const data = res.data?.data
       localStorage.setItem('token', data.token)
       localStorage.setItem('userId', String(data.userId))
+      localStorage.setItem('userEmail', email)
       tip('登录成功 🎉', 'success')
       setTimeout(() => navigate('/diary', { replace: true }), 800)
     } catch (err: any) {
