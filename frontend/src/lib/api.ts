@@ -56,4 +56,42 @@ export const userApi = {
   getProfile: (userId: number) => api.get(`/users/${userId}/profile`),
   updateProfile: (userId: number, data: Record<string, unknown>) =>
     api.put(`/users/${userId}/profile`, data),
+  getStats: (userId: number) => api.get(`/users/${userId}/stats`),
+}
+
+/* ── AI Analysis ── */
+export const analysisApi = {
+  create: (diaryId: number) => api.post(`/diaries/${diaryId}/analyze`, {}),
+  list: (diaryId?: number) => api.get('/analyses', { params: { diaryId } }),
+  get: (id: number) => api.get(`/analyses/${id}`),
+}
+
+/* ── Social Posts ── */
+export const socialApi = {
+  generate: (data: { diaryId?: number; content: string; style: string; catchphrases?: string[] }) =>
+    api.post('/social/generate', data),
+  save: (data: { diaryId?: number; content: string; style: string }) =>
+    api.post('/social', data),
+  list: () => api.get('/social'),
+}
+
+/* ── Stats/Insights ── */
+export const statsApi = {
+  moodTrend: (days: number) => api.get('/stats/mood-trend', { params: { days } }),
+  moodCalendar: (year: number, month: number) =>
+    api.get('/stats/mood-calendar', { params: { year, month } }),
+  stressSources: () => api.get('/stats/stress-sources'),
+  keyEvents: (limit?: number) => api.get('/stats/key-events', { params: { limit } }),
+  relationshipGraph: () => api.get('/stats/relationship-graph'),
+}
+
+/* ── Upload ── */
+export const uploadApi = {
+  uploadImage: (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post('/upload/image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
 }

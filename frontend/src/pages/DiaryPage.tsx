@@ -6,7 +6,7 @@ import {
   Bold, Italic, Heading1, Heading2, List, ListOrdered,
   Quote, Code2, Link, Image, Plus, Brain, Save, Eye, Edit3,
 } from 'lucide-react'
-import { diaryApi } from '../lib/api'
+import { diaryApi, uploadApi } from '../lib/api'
 
 const EMOTIONS = [
   { key: 'anxious',  label: '焦虑', emoji: '🌧️', bg: '#E8EEFF', color: '#7C8FD4' },
@@ -84,6 +84,7 @@ function Toast({ msg }: { msg: string }) {
 /* ── Main Page ──────────────────────────────────────────── */
 export default function DiaryPage() {
   const navigate = useNavigate()
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [diaries, setDiaries] = useState<Diary[]>([])
   const [selDate, setSelDate] = useState(dayjs())
   const [selId, setSelId] = useState<number>(-1)
@@ -95,21 +96,68 @@ export default function DiaryPage() {
   const [toast, setToast] = useState('')
   const [previewMode, setPreviewMode] = useState(false)
   const [images, setImages] = useState<string[]>([])
+  const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const isLoggedIn = !!localStorage.getItem('token')
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // 自动加载草稿
+  useEffect(() => {
+    const draft = localStorage.getItem('diaryDraft')
+    if (draft && selId === -1) {
+      try {
+        const data = JSON.parse(draft)
+        if (!content) {
+          setTitle(data.title || '')
+          setContent(data.content || '')
+          setEmotion(data.emotion || 'calm')
+          setImportance(data.importance || 7)
+          setImages(data.images || [])
+        }
+      } catch {
+        // 忽略解析错误
+      }
+    }
+  }, [])
+
+  // 自动保存草稿
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (selId === -1 && (title || content)) {
+        localStorage.setItem('diaryDraft', JSON.stringify({
+          title, content, emotion, importance, images
+        }))
+      }
+    }, 1000)
+    return () => clearTimeout(timer)
+  }, [title, content, emotion, importance, images, selId])
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files) return
-    Array.from(files).forEach(file => {
-      const reader = new FileReader()
-      reader.onload = (ev) => {
-        const dataUrl = ev.target?.result as string
-        setImages(prev => [...prev, dataUrl])
-        tip('图片已添加 📷')
+
+    setUploading(true)
+    try {
+      for (const file of Array.from(files)) {
+        // 先本地预览
+        const reader = new FileReader()
+        reader.onload = (ev) => {
+          const dataUrl = ev.target?.result as string
+          setImages(prev => [...prev, dataUrl])
+        }
+        reader.readAsDataURL(file)
+
+        // TODO: 上传到服务器
+        // const res = await uploadApi.uploadImage(file)
+        // const url = res.data?.data?.url
+        // setImages(prev => [...prev, url])
       }
-      reader.readAsDataURL(file)
-    })
+      tip('图片已添加 📷')
+    } catch (err) {
+      console.error('Upload failed:', err)
+      tip('图片上传失败，请重试')
+    } finally {
+      setUploading(false)
+    }
     e.target.value = ''
   }
 
@@ -140,15 +188,39 @@ export default function DiaryPage() {
     loadDiaries()
   }, [isLoggedIn])
 
-  /* populate editor when switching diary */
-  const selDiary = diaries.find(d => d.id === selId) ?? diaries[0]
+  /* Filter diaries by selected date */
+  const filteredDiaries = diaries.filter(d => d.date === selDate.format('MM-DD'))
+
+  /* Auto-select first diary of selected date or enter new mode */
   useEffect(() => {
-    if (!selDiary) return
+    if (filteredDiaries.length > 0) {
+      setSelId(filteredDiaries[0].id)
+    } else {
+      setSelId(-1) // 进入新建日记模式
+    }
+  }, [selDate.format('YYYY-MM-DD'), diaries.length])
+
+  /* populate editor when switching diary */
+  const selDiary = diaries.find(d => d.id === selId)
+  useEffect(() => {
+    if (!selDiary) {
+      // 新建日记模式，重置所有状态
+      setTitle('')
+      setContent('')
+      setEmotion('calm')
+      setImportance(7)
+      setImages([])
+      return
+    }
     setTitle(selDiary.title.replace(/…$/, ''))
     setContent(selDiary.content ?? '')
     setEmotion(selDiary.emotion)
     setImportance(selDiary.importanceScore ?? 7)
-  }, [selId])
+    setImages([]) // 重置图片（需要从API获取完整日记详情才能恢复图片）
+    // 保存当前日记ID供其他页面使用
+    localStorage.setItem('currentDiaryId', String(selDiary.id))
+    localStorage.setItem('currentDiaryContent', selDiary.content ?? '')
+  }, [selId, selDiary])
 
   const tip = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500) }
 
@@ -165,9 +237,11 @@ export default function DiaryPage() {
           diaryDate: selDate.format('YYYY-MM-DD'),
           emotionTags: [emotion],
           importanceScore: importance,
+          images,
         })
         const newId = res.data?.data?.diaryId ?? res.data?.diaryId
         tip('保存成功 ✅')
+        localStorage.removeItem('diaryDraft') // 清除草稿
         await loadDiaries()
         if (newId) setSelId(newId)
       } else {
@@ -176,6 +250,7 @@ export default function DiaryPage() {
           content,
           emotionTags: [emotion],
           importanceScore: importance,
+          images,
         })
         tip('更新成功 ✅')
         await loadDiaries()
@@ -188,16 +263,50 @@ export default function DiaryPage() {
     }
   }
 
+  const handleSaveDraft = () => {
+    localStorage.setItem('diaryDraft', JSON.stringify({
+      title, content, emotion, importance, images
+    }))
+    tip('草稿已保存 💾')
+  }
+
   const handleNew = () => {
-    setSelId(-1); setTitle(''); setContent(''); setEmotion('calm'); setImportance(7); setSelDate(dayjs())
+    setSelId(-1); setTitle(''); setContent(''); setEmotion('calm'); setImportance(7); setSelDate(dayjs()); setImages([])
+    localStorage.removeItem('currentDiaryId')
+    localStorage.removeItem('currentDiaryContent')
+  }
+
+  // 富文本工具栏功能
+  const insertText = (before: string, after: string = '') => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const text = content
+    const selected = text.substring(start, end)
+
+    const newText = text.substring(0, start) + before + selected + after + text.substring(end)
+    setContent(newText)
+
+    // 恢复焦点
+    setTimeout(() => {
+      textarea.focus()
+      textarea.setSelectionRange(start + before.length, start + before.length + selected.length)
+    }, 0)
   }
 
   const toolbar = [
-    { Icon: Bold, t: '粗体' }, { Icon: Italic, t: '斜体' },
-    { Icon: Heading1, t: 'H1' }, { Icon: Heading2, t: 'H2' },
-    { Icon: List, t: '列表' }, { Icon: ListOrdered, t: '有序列表' },
-    { Icon: Quote, t: '引用' }, { Icon: Code2, t: '代码' },
-    { Icon: Link, t: '链接' }, { Icon: Image, t: '图片' },
+    { Icon: Bold, t: '粗体', action: () => insertText('**', '**') },
+    { Icon: Italic, t: '斜体', action: () => insertText('*', '*') },
+    { Icon: Heading1, t: 'H1', action: () => insertText('\n# ', '') },
+    { Icon: Heading2, t: 'H2', action: () => insertText('\n## ', '') },
+    { Icon: List, t: '列表', action: () => insertText('\n- ', '') },
+    { Icon: ListOrdered, t: '有序列表', action: () => insertText('\n1. ', '') },
+    { Icon: Quote, t: '引用', action: () => insertText('\n> ', '') },
+    { Icon: Code2, t: '代码', action: () => insertText('`', '`') },
+    { Icon: Link, t: '链接', action: () => insertText('[', '](url)') },
+    { Icon: Image, t: '图片', action: () => fileInputRef.current?.click() },
   ]
   const sepAfter = new Set([3, 5, 7])
 
@@ -216,8 +325,11 @@ export default function DiaryPage() {
           </div>
 
           <p className="text-[10px] font-semibold text-[#8A94B8] mb-1.5 px-1 uppercase tracking-wide">日记列表</p>
-          <div className="flex-1 space-y-0.5 min-h-0">
-            {diaries.map(d => (
+          <div className="flex-1 space-y-0.5 min-h-0 overflow-y-auto">
+            {filteredDiaries.length === 0 && (
+              <p className="text-xs text-[#C4C9E8] text-center py-4">当天暂无日记</p>
+            )}
+            {filteredDiaries.map(d => (
               <button key={d.id} onClick={() => setSelId(d.id)}
                 className={`w-full text-left px-2.5 py-2 rounded-xl transition-all ${
                   selId === d.id ? 'bg-[#7C8FD4]/20 border border-[#7C8FD4]/30' : 'hover:bg-white/60'}`}>
@@ -250,9 +362,9 @@ export default function DiaryPage() {
           <div className="glass-card overflow-hidden flex-1 flex flex-col min-h-0">
             {/* Toolbar */}
             <div className="flex items-center flex-wrap gap-0.5 px-3 py-2 border-b border-[#E8EEFF]">
-              {toolbar.map(({ Icon, t }, idx) => (
+              {toolbar.map(({ Icon, t, action }, idx) => (
                 <span key={t} className="inline-flex items-center">
-                  <button title={t}
+                  <button title={t} onClick={action}
                     className="w-8 h-8 flex items-center justify-center rounded-lg text-[#5B6FBE] hover:bg-[#7C8FD4]/10 transition-colors">
                     <Icon size={15} />
                   </button>
@@ -272,7 +384,9 @@ export default function DiaryPage() {
                 <ReactMarkdown>{content || '*暂无内容*'}</ReactMarkdown>
               </div>
             ) : (
-              <textarea value={content} onChange={e => setContent(e.target.value)}
+              <textarea
+                ref={textareaRef}
+                value={content} onChange={e => setContent(e.target.value)}
                 placeholder="支持 Markdown 语法：## 标题、- 列表、**粗体** 等..."
                 className="flex-1 w-full p-4 resize-none focus:outline-none text-[#2D3250] placeholder-[#C4C9E8] text-sm leading-relaxed bg-transparent min-h-[200px] font-mono" />
             )}
@@ -317,16 +431,19 @@ export default function DiaryPage() {
               onChange={handleImageUpload}
               accept="image/*"
               multiple
+              disabled={uploading}
               className="hidden"
             />
             <div
-              onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-[#C4C9E8] rounded-xl py-4 flex flex-col items-center gap-1.5 cursor-pointer hover:border-[#7C8FD4] hover:bg-[#7C8FD4]/5 transition-all">
+              onClick={() => !uploading && fileInputRef.current?.click()}
+              className={`border-2 border-dashed rounded-xl py-4 flex flex-col items-center gap-1.5 cursor-pointer transition-all ${
+                uploading ? 'opacity-50 cursor-not-allowed' : 'border-[#C4C9E8] hover:border-[#7C8FD4] hover:bg-[#7C8FD4]/5'
+              }`}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
                 <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"
                   stroke="#8A94B8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              <span className="text-sm text-[#8A94B8]">点击或拖拽上传图片</span>
+              <span className="text-sm text-[#8A94B8]">{uploading ? '上传中...' : '点击或拖拽上传图片'}</span>
             </div>
             {images.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-3">
@@ -346,7 +463,8 @@ export default function DiaryPage() {
 
           {/* Action Row */}
           <div className="flex justify-between items-center pb-2">
-            <button className="px-4 py-2 rounded-xl text-sm text-[#8A94B8] hover:bg-white/60 transition-colors">
+            <button onClick={handleSaveDraft}
+              className="px-4 py-2 rounded-xl text-sm text-[#8A94B8] hover:bg-white/60 transition-colors">
               保存草稿
             </button>
             <div className="flex gap-2">

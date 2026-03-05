@@ -22,6 +22,7 @@ export default function ProfilePage() {
   const [editing, setEditing] = useState(false)
   const [toast, setToast] = useState('')
   const [saving, setSaving] = useState(false)
+  const [loading, setLoading] = useState(true)
   const isLoggedIn = !!localStorage.getItem('token')
   const userId = Number(localStorage.getItem('userId') ?? 0)
 
@@ -34,8 +35,9 @@ export default function ProfilePage() {
     currentState: '自我探索/成长',
     catchphrases: ['人间值得', '加油鸭'],
     socialStyle: '文艺极简',
-    diaryCount: 42,
-    streak: 7,
+    diaryCount: 0,
+    streak: 0,
+    analysisCount: 0,
   })
   const [draft, setDraft] = useState({ ...profile })
   const [newPhrase, setNewPhrase] = useState('')
@@ -43,17 +45,68 @@ export default function ProfilePage() {
   const tip = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500) }
 
   useEffect(() => {
-    if (!isLoggedIn || !userId) return
-    userApi.getProfile(userId).then(res => {
-      const d = res.data?.data
-      if (!d) return
-      setProfile(prev => ({
-        ...prev,
-        identityTag: d.identityTag ?? prev.identityTag,
-        mbti: d.personalityType ?? prev.mbti,
-        currentState: d.currentState ?? prev.currentState,
-      }))
-    }).catch(() => {})
+    const loadData = async () => {
+      if (!isLoggedIn || !userId) {
+        setLoading(false)
+        return
+      }
+
+      try {
+        // 并行加载用户画像和统计数据
+        const [profileRes, statsRes] = await Promise.allSettled([
+          userApi.getProfile(userId),
+          userApi.getStats(userId),
+        ])
+
+        // 处理用户画像
+        if (profileRes.status === 'fulfilled') {
+          const data = profileRes.value.data?.data
+          if (data) {
+            setProfile(prev => ({
+              ...prev,
+              username: data.username || prev.username,
+              email: data.email || prev.email,
+              isPremium: data.isPremium ?? prev.isPremium,
+              identityTag: data.profile?.identityTag ?? prev.identityTag,
+              mbti: data.profile?.personalityType ?? prev.mbti,
+              currentState: data.profile?.currentState ?? prev.currentState,
+              catchphrases: data.profile?.catchphrases ?? prev.catchphrases,
+              socialStyle: data.profile?.socialStyle ?? prev.socialStyle,
+            }))
+            setDraft(prev => ({
+              ...prev,
+              username: data.username || prev.username,
+              email: data.email || prev.email,
+              isPremium: data.isPremium ?? prev.isPremium,
+              identityTag: data.profile?.identityTag ?? prev.identityTag,
+              mbti: data.profile?.personalityType ?? prev.mbti,
+              currentState: data.profile?.currentState ?? prev.currentState,
+              catchphrases: data.profile?.catchphrases ?? prev.catchphrases,
+              socialStyle: data.profile?.socialStyle ?? prev.socialStyle,
+            }))
+          }
+        }
+
+        // 处理统计数据
+        if (statsRes.status === 'fulfilled') {
+          const data = statsRes.value.data?.data
+          if (data) {
+            setProfile(prev => ({
+              ...prev,
+              diaryCount: data.diaryCount ?? 0,
+              streak: data.streak ?? 0,
+              analysisCount: data.analysisCount ?? 0,
+            }))
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load profile:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadData()
   }, [isLoggedIn, userId])
 
   const handleSave = async () => {
@@ -64,6 +117,7 @@ export default function ProfilePage() {
           identityTag: draft.identityTag,
           personalityType: draft.mbti,
           currentState: draft.currentState,
+          catchphrases: draft.catchphrases,
         })
       }
       setProfile({ ...draft })
@@ -89,6 +143,14 @@ export default function ProfilePage() {
   }
 
   const cur = editing ? draft : profile
+
+  if (loading) {
+    return (
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-[#7C8FD4] border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
 
   return (
     <>
@@ -135,7 +197,7 @@ export default function ProfilePage() {
             {[
               { label: '总日记数', value: profile.diaryCount, icon: '📝', color: '#7C8FD4', bg: '#EEF1FF' },
               { label: '连续天数', value: `${profile.streak}天`, icon: '🔥', color: '#EF5350', bg: '#FFF0EE' },
-              { label: '情绪分析', value: '12次', icon: '🧠', color: '#9C6FD4', bg: '#F3ECFF' },
+              { label: '情绪分析', value: `${profile.analysisCount}次`, icon: '🧠', color: '#9C6FD4', bg: '#F3ECFF' },
             ].map(s => (
               <div key={s.label} className="glass-card p-4 text-center">
                 <div className="text-2xl mb-1">{s.icon}</div>

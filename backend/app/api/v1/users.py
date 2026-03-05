@@ -84,3 +84,28 @@ async def update_user_profile(
     await db.refresh(profile)
 
     return success_response({"message": "画像更新成功"})
+
+
+@router.get("/{user_id}/stats", summary="获取用户统计数据")
+async def get_user_stats(
+    user_id: int,
+    current_user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """获取用户的统计数据（日记数、连续天数等）"""
+    if user_id != current_user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="无权访问其他用户数据")
+
+    from app.models.diary import Diary
+    from app.models.ai_analysis import AIAnalysis
+
+    # TODO: 计算真实的统计数据
+    # 1. 日记总数
+    # 2. 连续记录天数
+    # 3. AI分析次数
+
+    return success_response({
+        "diaryCount": 0,
+        "streak": 0,
+        "analysisCount": 0,
+    })

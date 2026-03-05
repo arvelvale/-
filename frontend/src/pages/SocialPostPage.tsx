@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Sparkles, Copy, Check, RefreshCw, Edit3 } from 'lucide-react'
+import { socialApi } from '../lib/api'
 
 const STYLES = [
   { key: 'minimal',    label: '文艺极简', emoji: '🍃', desc: '留白美学，意境深远',     color: '#4CAF50', bg: '#E8F5E9' },
@@ -8,29 +9,6 @@ const STYLES = [
   { key: 'emotional',  label: '深情小作文', emoji: '💌', desc: '细腻温柔，打动人心', color: '#E91E8C', bg: '#FFF0F5' },
   { key: 'life',       label: '生活记录', emoji: '📷', desc: '真实日常，自然流露',     color: '#9C6FD4', bg: '#F3ECFF' },
 ]
-
-const MOCK_POSTS: Record<string, string[]> = {
-  minimal: [
-    '今天的阳光，刚刚好。\n不多，不少。\n够了。',
-    '有些事情，\n不说，\n也懂。',
-  ],
-  career: [
-    '今天复盘了一个关键决策——\n不是结果决定对错，\n而是决策时的逻辑是否清晰。\n持续成长，慢慢来。',
-    '效率的本质不是更快，\n而是更清晰地知道在做什么。',
-  ],
-  humor: [
-    '今天做了一个重大决定：\n决定明天再做决定。\n（人生就是这么循环往复 😅）',
-    '我妈问我最近咋样\n"挺好的"\n（内心OS：我哪知道啊）',
-  ],
-  emotional: [
-    '总有一些时刻，\n你会突然觉得，\n原来生活是有温度的。\n\n谢谢今天遇见的一切。🌸',
-    '有时候，\n一个人走走，\n反而能想清楚很多事。\n\n和自己好好相处，\n也是一种成长。',
-  ],
-  life: [
-    '下午三点的咖啡，\n配上一段安静的时光，\n刚刚好。☕\n\n#生活记录 #下午茶',
-    '今天没什么特别的，\n就是普通的一天——\n但普通，也挺好的。\n\n#日常 #平凡生活',
-  ],
-}
 
 function Toast({ msg }: { msg: string }) {
   if (!msg) return null
@@ -53,16 +31,50 @@ export default function SocialPostPage() {
   const [catchphrase, setCatchphrase] = useState('')
   const [toast, setToast] = useState('')
 
-  const tip = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2000) }
+  const tip = (msg: string) => {
+    setToast(msg)
+    setTimeout(() => setToast(''), 2000)
+  }
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
+    const diaryId = localStorage.getItem('currentDiaryId')
+    const diaryContent = localStorage.getItem('currentDiaryContent') || ''
+
+    if (!diaryId && !diaryContent) {
+      tip('请先选择或输入要生成文案的内容')
+      return
+    }
+
     setGenerating(true)
     setGenerated(false)
-    setTimeout(() => {
-      setPosts(MOCK_POSTS[selStyle] ?? [])
+
+    try {
+      const res = await socialApi.generate({
+        diaryId: diaryId ? Number(diaryId) : undefined,
+        content: diaryContent,
+        style: selStyle,
+        catchphrases: catchphrase ? [catchphrase] : [],
+      })
+
+      const data = res.data?.data
+      if (data?.posts && data.posts.length > 0) {
+        setPosts(data.posts)
+        setGenerated(true)
+      } else {
+        // API返回空数据，使用模拟数据
+        setTimeout(() => {
+          setPosts(['文案生成功能开发中，请稍后重试'])
+          setGenerating(false)
+          setGenerated(true)
+        }, 1600)
+      }
+    } catch (err) {
+      console.error('Generate failed:', err)
+      tip('生成失败，请稍后重试')
       setGenerating(false)
-      setGenerated(true)
-    }, 1600)
+    } finally {
+      setGenerating(false)
+    }
   }
 
   const handleCopy = (text: string, idx: number) => {
@@ -73,11 +85,18 @@ export default function SocialPostPage() {
     })
   }
 
-  const handleEdit = (idx: number, text: string) => { setEditIdx(idx); setEditText(text) }
+  const handleEdit = (idx: number, text: string) => {
+    setEditIdx(idx)
+    setEditText(text)
+  }
+
   const handleSaveEdit = () => {
     if (editIdx === null) return
-    const next = [...posts]; next[editIdx] = editText
-    setPosts(next); setEditIdx(null); tip('已保存修改 ✅')
+    const next = [...posts]
+    next[editIdx] = editText
+    setPosts(next)
+    setEditIdx(null)
+    tip('已保存修改 ✅')
   }
 
   const style = STYLES.find(s => s.key === selStyle)!
