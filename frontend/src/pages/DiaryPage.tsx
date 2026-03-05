@@ -4,12 +4,14 @@ import dayjs from 'dayjs'
 import ReactMarkdown from 'react-markdown'
 import {
   Bold, Italic, Heading1, Heading2, List, ListOrdered,
-  Quote, Code2, Link, Image, Plus, Brain, Save, Eye, Edit3,
+  Quote, Code2, Link, Image, Plus, Save, Eye, Edit3,
+  Upload, Sparkles,
 } from 'lucide-react'
-import { diaryApi, uploadApi } from '../lib/api'
+import { diaryApi } from '../lib/api'
+// TODO: 图片上传API待后端实现后接入 // TODO-MOCK
 
 const EMOTIONS = [
-  { key: 'anxious',  label: '焦虑', emoji: '🌧️', bg: '#E8EEFF', color: '#7C8FD4' },
+  { key: 'anxious',  label: '焦虑', emoji: '🌧️', bg: '#EEF0FF', color: '#7C8FD4' },
   { key: 'happy',    label: '开心', emoji: '😊',  bg: '#FFF8E1', color: '#F9A825' },
   { key: 'sad',      label: '委屈', emoji: '💧',  bg: '#F3ECFF', color: '#9C6FD4' },
   { key: 'calm',     label: '平静', emoji: '🌿',  bg: '#E8F5E9', color: '#4CAF50' },
@@ -21,7 +23,6 @@ interface Diary {
   id: number; date: string; title: string
   content?: string; emotion: string; importanceScore?: number
 }
-
 
 /* ── Mini Calendar ─────────────────────────────────────── */
 function MiniCalendar({ selected, onSelect }: { selected: dayjs.Dayjs; onSelect: (d: dayjs.Dayjs) => void }) {
@@ -37,14 +38,14 @@ function MiniCalendar({ selected, onSelect }: { selected: dayjs.Dayjs; onSelect:
     <div>
       <div className="flex items-center justify-between mb-2 px-1">
         <button onClick={() => setCur(c => c.subtract(1, 'month'))}
-          className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-[#7C8FD4]/10 text-[#8A94B8] text-base">‹</button>
-        <span className="text-sm font-semibold text-[#2D3250]">{cur.format('YYYY年M月')}</span>
+          className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-[#7C8FD4]/10 text-gray-400 text-base">‹</button>
+        <span className="text-xs font-semibold text-gray-700">{cur.format('YYYY年M月')}</span>
         <button onClick={() => setCur(c => c.add(1, 'month'))}
-          className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-[#7C8FD4]/10 text-[#8A94B8] text-base">›</button>
+          className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-[#7C8FD4]/10 text-gray-400 text-base">›</button>
       </div>
       <div className="grid grid-cols-7 mb-1">
         {['日','一','二','三','四','五','六'].map(d => (
-          <div key={d} className="text-center text-[10px] text-[#8A94B8] py-0.5">{d}</div>
+          <div key={d} className="text-center text-[10px] text-gray-400 py-0.5">{d}</div>
         ))}
       </div>
       <div className="grid grid-cols-7">
@@ -58,7 +59,7 @@ function MiniCalendar({ selected, onSelect }: { selected: dayjs.Dayjs; onSelect:
                 className={`w-7 h-7 rounded-full text-[11px] font-medium transition-all ${
                   isSel   ? 'bg-[#7C8FD4] text-white shadow-sm' :
                   isToday ? 'bg-[#7C8FD4]/15 text-[#7C8FD4] font-bold' :
-                            'text-[#2D3250] hover:bg-[#7C8FD4]/10'}`}>
+                            'text-gray-600 hover:bg-gray-100'}`}>
                 {day}
               </button>
               {dot(day) && !isSel && <div className="w-1 h-1 rounded-full bg-[#7C8FD4] mt-0.5" />}
@@ -74,7 +75,7 @@ function MiniCalendar({ selected, onSelect }: { selected: dayjs.Dayjs; onSelect:
 function Toast({ msg }: { msg: string }) {
   if (!msg) return null
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-2.5 rounded-2xl text-sm font-medium text-white shadow-lg"
+    <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] px-5 py-2.5 rounded-2xl text-sm font-medium text-white shadow-lg"
       style={{ background: 'linear-gradient(135deg,#7C8FD4,#C4B5FD)' }}>
       {msg}
     </div>
@@ -134,22 +135,15 @@ export default function DiaryPage() {
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files) return
-
     setUploading(true)
     try {
       for (const file of Array.from(files)) {
-        // 先本地预览
         const reader = new FileReader()
         reader.onload = (ev) => {
           const dataUrl = ev.target?.result as string
           setImages(prev => [...prev, dataUrl])
         }
         reader.readAsDataURL(file)
-
-        // TODO: 上传到服务器
-        // const res = await uploadApi.uploadImage(file)
-        // const url = res.data?.data?.url
-        // setImages(prev => [...prev, url])
       }
       tip('图片已添加 📷')
     } catch (err) {
@@ -196,7 +190,7 @@ export default function DiaryPage() {
     if (filteredDiaries.length > 0) {
       setSelId(filteredDiaries[0].id)
     } else {
-      setSelId(-1) // 进入新建日记模式
+      setSelId(-1)
     }
   }, [selDate.format('YYYY-MM-DD'), diaries.length])
 
@@ -204,7 +198,6 @@ export default function DiaryPage() {
   const selDiary = diaries.find(d => d.id === selId)
   useEffect(() => {
     if (!selDiary) {
-      // 新建日记模式，重置所有状态
       setTitle('')
       setContent('')
       setEmotion('calm')
@@ -216,8 +209,7 @@ export default function DiaryPage() {
     setContent(selDiary.content ?? '')
     setEmotion(selDiary.emotion)
     setImportance(selDiary.importanceScore ?? 7)
-    setImages([]) // 重置图片（需要从API获取完整日记详情才能恢复图片）
-    // 保存当前日记ID供其他页面使用
+    setImages([])
     localStorage.setItem('currentDiaryId', String(selDiary.id))
     localStorage.setItem('currentDiaryContent', selDiary.content ?? '')
   }, [selId, selDiary])
@@ -237,11 +229,10 @@ export default function DiaryPage() {
           diaryDate: selDate.format('YYYY-MM-DD'),
           emotionTags: [emotion],
           importanceScore: importance,
-          images,
         })
         const newId = res.data?.data?.diaryId ?? res.data?.diaryId
         tip('保存成功 ✅')
-        localStorage.removeItem('diaryDraft') // 清除草稿
+        localStorage.removeItem('diaryDraft')
         await loadDiaries()
         if (newId) setSelId(newId)
       } else {
@@ -250,7 +241,6 @@ export default function DiaryPage() {
           content,
           emotionTags: [emotion],
           importanceScore: importance,
-          images,
         })
         tip('更新成功 ✅')
         await loadDiaries()
@@ -276,20 +266,16 @@ export default function DiaryPage() {
     localStorage.removeItem('currentDiaryContent')
   }
 
-  // 富文本工具栏功能
+  // 富文本工具栏
   const insertText = (before: string, after: string = '') => {
     const textarea = textareaRef.current
     if (!textarea) return
-
     const start = textarea.selectionStart
     const end = textarea.selectionEnd
     const text = content
     const selected = text.substring(start, end)
-
     const newText = text.substring(0, start) + before + selected + after + text.substring(end)
     setContent(newText)
-
-    // 恢复焦点
     setTimeout(() => {
       textarea.focus()
       textarea.setSelectionRange(start + before.length, start + before.length + selected.length)
@@ -308,178 +294,204 @@ export default function DiaryPage() {
     { Icon: Link, t: '链接', action: () => insertText('[', '](url)') },
     { Icon: Image, t: '图片', action: () => fileInputRef.current?.click() },
   ]
-  const sepAfter = new Set([3, 5, 7])
+  const sepAfter = new Set([1, 3, 5, 7])
 
   return (
     <>
       <Toast msg={toast} />
-      {/* root: fills parent <main> via absolute inset */}
       <div className="absolute inset-0 flex overflow-hidden">
 
         {/* ── Sidebar ── */}
-        <aside className="w-52 flex-shrink-0 flex flex-col overflow-y-auto border-r border-white/60 py-3 px-2.5"
-          style={{ background: 'rgba(240,244,255,0.75)' }}>
+        <aside className="w-56 flex-shrink-0 flex flex-col overflow-hidden bg-slate-50/80 border-r border-gray-100">
 
-          <div className="glass-card p-3 mb-3 flex-shrink-0">
+          {/* New Diary — top of sidebar */}
+          <div className="px-3 pt-3 pb-2 flex-shrink-0">
+            <button onClick={handleNew}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-sm font-semibold shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all"
+              style={{ background: 'linear-gradient(135deg, #7C8FD4, #A78BFA)' }}>
+              <Plus size={16} />新建日记
+            </button>
+          </div>
+
+          {/* Calendar */}
+          <div className="mx-3 mb-2 p-3 bg-white rounded-2xl shadow-sm flex-shrink-0">
             <MiniCalendar selected={selDate} onSelect={setSelDate} />
           </div>
 
-          <p className="text-[10px] font-semibold text-[#8A94B8] mb-1.5 px-1 uppercase tracking-wide">日记列表</p>
-          <div className="flex-1 space-y-0.5 min-h-0 overflow-y-auto">
-            {filteredDiaries.length === 0 && (
-              <p className="text-xs text-[#C4C9E8] text-center py-4">当天暂无日记</p>
-            )}
-            {filteredDiaries.map(d => (
-              <button key={d.id} onClick={() => setSelId(d.id)}
-                className={`w-full text-left px-2.5 py-2 rounded-xl transition-all ${
-                  selId === d.id ? 'bg-[#7C8FD4]/20 border border-[#7C8FD4]/30' : 'hover:bg-white/60'}`}>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-mono text-[#8A94B8] flex-shrink-0">{d.date}</span>
-                  <span className="text-xs text-[#2D3250] truncate">{d.title}</span>
-                </div>
-              </button>
-            ))}
+          {/* Diary List */}
+          <div className="px-3 flex-1 min-h-0 flex flex-col">
+            <p className="text-[10px] font-semibold text-gray-400 mb-1.5 px-1 uppercase tracking-wider">
+              {selDate.format('M月D日')} 的日记
+            </p>
+            <div className="flex-1 space-y-1 overflow-y-auto pb-3">
+              {filteredDiaries.length === 0 && (
+                <p className="text-xs text-gray-300 text-center py-6">当天暂无日记</p>
+              )}
+              {filteredDiaries.map(d => (
+                <button key={d.id} onClick={() => setSelId(d.id)}
+                  className={`w-full text-left px-3 py-2.5 rounded-xl transition-all ${
+                    selId === d.id
+                      ? 'bg-white shadow-sm border border-[#7C8FD4]/20'
+                      : 'hover:bg-white/70'
+                  }`}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono text-gray-400 flex-shrink-0">{d.date}</span>
+                    <span className={`text-xs truncate ${selId === d.id ? 'text-gray-800 font-medium' : 'text-gray-600'}`}>
+                      {d.title}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
-
-          <button onClick={handleNew}
-            className="mt-2 flex-shrink-0 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-[#7C8FD4] text-xs font-medium border border-dashed border-[#7C8FD4]/40 hover:bg-[#7C8FD4]/10 transition-colors">
-            <Plus size={13} />新建日记
-          </button>
         </aside>
 
-        {/* ── Editor ── */}
-        <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-4">
+        {/* ── Editor Area ── */}
+        <div className="flex-1 overflow-y-auto bg-white relative pb-24">
+          <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" multiple disabled={uploading} className="hidden" />
 
-          {/* Date + title row */}
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-[#8A94B8] flex-shrink-0">{selDate.format('YYYY年M月D日')}</span>
-            <input value={title} onChange={e => setTitle(e.target.value)}
+          {/* Centered Canvas */}
+          <div className="max-w-3xl mx-auto w-full px-8 py-10">
+
+            {/* Date */}
+            <p className="text-sm text-gray-400 mb-4">{selDate.format('YYYY年M月D日')}</p>
+
+            {/* Title */}
+            <input
+              value={title}
+              onChange={e => setTitle(e.target.value)}
               placeholder="给今天取个标题..."
-              className="flex-1 text-base font-semibold text-[#2D3250] placeholder-[#C4C9E8] bg-transparent border-none focus:outline-none" />
-          </div>
+              className="w-full text-3xl font-bold text-gray-800 placeholder-gray-300 bg-transparent border-none focus:outline-none mb-6 leading-snug"
+            />
 
-          {/* Rich-text card */}
-          <div className="glass-card overflow-hidden flex-1 flex flex-col min-h-0">
-            {/* Toolbar */}
-            <div className="flex items-center flex-wrap gap-0.5 px-3 py-2 border-b border-[#E8EEFF]">
+            {/* Toolbar — subtle, attached */}
+            <div className="flex items-center flex-wrap gap-0.5 pb-3 mb-4 border-b border-gray-100">
               {toolbar.map(({ Icon, t, action }, idx) => (
                 <span key={t} className="inline-flex items-center">
                   <button title={t} onClick={action}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg text-[#5B6FBE] hover:bg-[#7C8FD4]/10 transition-colors">
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-[#7C8FD4] hover:bg-gray-50 transition-colors">
                     <Icon size={15} />
                   </button>
-                  {sepAfter.has(idx) && <span className="w-px h-5 bg-[#E0E7FF] mx-1" />}
+                  {sepAfter.has(idx) && <span className="w-px h-4 bg-gray-100 mx-0.5" />}
                 </span>
               ))}
               <span className="flex-1" />
               <button onClick={() => setPreviewMode(!previewMode)} title={previewMode ? '编辑' : '预览'}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors ${
-                  previewMode ? 'bg-[#7C8FD4] text-white' : 'text-[#5B6FBE] hover:bg-[#7C8FD4]/10'}`}>
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${
+                  previewMode
+                    ? 'bg-[#7C8FD4] text-white shadow-sm'
+                    : 'text-gray-400 hover:text-[#7C8FD4] hover:bg-gray-50'
+                }`}>
                 {previewMode ? <><Edit3 size={13} />编辑</> : <><Eye size={13} />预览</>}
               </button>
             </div>
+
             {/* Editor / Preview */}
             {previewMode ? (
-              <div className="flex-1 w-full p-4 overflow-y-auto prose prose-sm prose-slate max-w-none min-h-[200px]">
-                <ReactMarkdown>{content || '*暂无内容*'}</ReactMarkdown>
+              <div className="prose prose-sm prose-slate max-w-none min-h-[300px] focus:outline-none">
+                <ReactMarkdown>{content || '*在这里记录你的想法...*'}</ReactMarkdown>
               </div>
             ) : (
               <textarea
                 ref={textareaRef}
-                value={content} onChange={e => setContent(e.target.value)}
-                placeholder="支持 Markdown 语法：## 标题、- 列表、**粗体** 等..."
-                className="flex-1 w-full p-4 resize-none focus:outline-none text-[#2D3250] placeholder-[#C4C9E8] text-sm leading-relaxed bg-transparent min-h-[200px] font-mono" />
+                value={content}
+                onChange={e => setContent(e.target.value)}
+                placeholder="在这里记录你的想法...&#10;&#10;支持 Markdown 语法：## 标题、- 列表、**粗体** 等"
+                className="w-full min-h-[300px] resize-none focus:outline-none text-gray-700 placeholder-gray-300 text-base leading-relaxed bg-transparent"
+              />
             )}
-          </div>
 
-          {/* Emotion Tags */}
-          <div className="flex flex-wrap gap-2">
-            {EMOTIONS.map(em => (
-              <button key={em.key} onClick={() => setEmotion(em.key)}
-                className="emotion-pill"
-                style={{
-                  background: em.bg, color: em.color,
-                  borderColor: emotion === em.key ? em.color : 'transparent',
-                  fontWeight: emotion === em.key ? 600 : 500,
-                  transform: emotion === em.key ? 'scale(1.04)' : 'scale(1)',
-                  boxShadow: emotion === em.key ? `0 4px 12px ${em.color}30` : 'none',
-                }}>
-                <span>{em.emoji}</span>{em.label}
-              </button>
-            ))}
-          </div>
+            {/* ── Metadata Section ── */}
+            <div className="mt-10 space-y-4">
 
-          {/* Importance Slider */}
-          <div className="glass-card px-5 py-3">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-[#2D3250]">重要性 (1-10)</span>
-              <span className="text-sm font-bold text-[#7C8FD4]">{importance}</span>
-            </div>
-            <input type="range" min={1} max={10} value={importance}
-              onChange={e => setImportance(Number(e.target.value))} className="w-full" />
-            <div className="flex justify-between text-[11px] text-[#C4C9E8] mt-1">
-              <span>普通</span><span>重要</span>
-            </div>
-          </div>
-
-          {/* Image Upload */}
-          <div className="glass-card px-5 py-3">
-            <p className="text-sm font-medium text-[#2D3250] mb-2">图片上传</p>
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleImageUpload}
-              accept="image/*"
-              multiple
-              disabled={uploading}
-              className="hidden"
-            />
-            <div
-              onClick={() => !uploading && fileInputRef.current?.click()}
-              className={`border-2 border-dashed rounded-xl py-4 flex flex-col items-center gap-1.5 cursor-pointer transition-all ${
-                uploading ? 'opacity-50 cursor-not-allowed' : 'border-[#C4C9E8] hover:border-[#7C8FD4] hover:bg-[#7C8FD4]/5'
-              }`}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"
-                  stroke="#8A94B8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              <span className="text-sm text-[#8A94B8]">{uploading ? '上传中...' : '点击或拖拽上传图片'}</span>
-            </div>
-            {images.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-3">
-                {images.map((img, i) => (
-                  <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-[#E8EEFF]">
-                    <img src={img} alt="" className="w-full h-full object-cover" />
-                    <button
-                      onClick={() => setImages(prev => prev.filter((_, idx) => idx !== i))}
-                      className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-600">
-                      ×
+              {/* Emotion Tags — capsule pills, no background box */}
+              <div>
+                <p className="text-xs font-medium text-gray-400 mb-3 uppercase tracking-wider">今天的心情</p>
+                <div className="flex flex-wrap gap-2">
+                  {EMOTIONS.map(em => (
+                    <button key={em.key} onClick={() => setEmotion(em.key)}
+                      className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
+                        emotion === em.key
+                          ? 'shadow-md scale-105'
+                          : 'border-transparent hover:scale-102'
+                      }`}
+                      style={{
+                        background: em.bg,
+                        color: em.color,
+                        borderColor: emotion === em.key ? em.color : 'transparent',
+                        boxShadow: emotion === em.key ? `0 4px 14px ${em.color}25` : 'none',
+                      }}>
+                      <span className="text-base">{em.emoji}</span>{em.label}
                     </button>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            )}
+
+              {/* Importance + Image in two compact cards side by side */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Importance */}
+                <div className="bg-gray-50 rounded-2xl p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">重要程度</span>
+                    <span className="text-lg font-bold text-[#7C8FD4]">{importance}</span>
+                  </div>
+                  <input type="range" min={1} max={10} value={importance}
+                    onChange={e => setImportance(Number(e.target.value))}
+                    className="w-full accent-[#7C8FD4]" />
+                  <div className="flex justify-between text-[11px] text-gray-400 mt-1.5">
+                    <span>随意记录</span><span>非常重要</span>
+                  </div>
+                </div>
+
+                {/* Image Upload */}
+                <div className="bg-gray-50 rounded-2xl p-5">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">附件图片</p>
+                  <div
+                    onClick={() => !uploading && fileInputRef.current?.click()}
+                    className={`border-2 border-dashed rounded-xl py-3 flex flex-col items-center gap-1 cursor-pointer transition-all ${
+                      uploading ? 'opacity-50 cursor-not-allowed border-gray-200' : 'border-gray-200 hover:border-[#7C8FD4] hover:bg-[#7C8FD4]/5'
+                    }`}>
+                    <Upload size={18} className="text-gray-400" />
+                    <span className="text-xs text-gray-400">{uploading ? '上传中...' : '点击上传图片'}</span>
+                  </div>
+                  {images.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {images.map((img, i) => (
+                        <div key={i} className="relative w-14 h-14 rounded-xl overflow-hidden border border-gray-200 group">
+                          <img src={img} alt="" className="w-full h-full object-cover" />
+                          <button
+                            onClick={() => setImages(prev => prev.filter((_, idx) => idx !== i))}
+                            className="absolute inset-0 bg-black/40 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            删除
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Action Row */}
-          <div className="flex justify-between items-center pb-2">
+          {/* ── Floating Action Bar ── */}
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-2 py-2 bg-white/80 backdrop-blur-xl rounded-2xl shadow-lg shadow-gray-200/50 border border-gray-100">
             <button onClick={handleSaveDraft}
-              className="px-4 py-2 rounded-xl text-sm text-[#8A94B8] hover:bg-white/60 transition-colors">
+              className="px-4 py-2.5 rounded-xl text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors">
               保存草稿
             </button>
-            <div className="flex gap-2">
-              <button onClick={handleSave} disabled={saving}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-[#7C8FD4] border border-[#7C8FD4]/40 hover:bg-[#7C8FD4]/10 transition-colors disabled:opacity-60">
-                <Save size={14} />{saving ? '保存中...' : '保存'}
-              </button>
-              <button onClick={() => navigate('/ai')}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all"
-                style={{ background: 'linear-gradient(135deg,#7C8FD4,#C4B5FD)' }}>
-                <Brain size={14} />AI心理分析
-              </button>
-            </div>
+            <div className="w-px h-6 bg-gray-100" />
+            <button onClick={handleSave} disabled={saving}
+              className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-medium text-[#7C8FD4] hover:bg-[#7C8FD4]/10 transition-colors disabled:opacity-60">
+              <Save size={15} />{saving ? '保存中...' : '保存'}
+            </button>
+            <button onClick={() => navigate('/ai')}
+              className="relative flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all overflow-hidden group"
+              style={{ background: 'linear-gradient(135deg, #7C8FD4, #A78BFA, #C4B5FD)' }}>
+              <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/25 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+              <Sparkles size={15} className="relative z-10" />
+              <span className="relative z-10">AI心理分析</span>
+            </button>
           </div>
-
         </div>
       </div>
     </>
